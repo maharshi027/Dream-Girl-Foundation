@@ -132,9 +132,7 @@ export const downloadCertificate = async (req, res) => {
     doc.moveDown(0.8);
 
     // Contribution detail
-    const formattedAmount = new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
+    const formattedAmount = "Rs. " + new Intl.NumberFormat("en-IN", {
       maximumFractionDigits: 0,
     }).format(donation.amount);
 
