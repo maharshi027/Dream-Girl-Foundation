@@ -19,6 +19,16 @@ export default function DonarList() {
     amount: "",
     paymentMode: "",
     paymentStatus: "",
+    address: "",
+    panNo: "",
+    txnId: "",
+    user: "",
+    type: "",
+    gatewayName: "",
+    claimStatus: "",
+    orderId: "",
+    date: "",
+    additionalInfo: "",
   });
 
   const fetchDonations = async () => {
@@ -63,6 +73,16 @@ export default function DonarList() {
       amount: record.amount,
       paymentMode: record.paymentMode,
       paymentStatus: record.paymentStatus,
+      address: record.address || "",
+      panNo: record.panNo || "",
+      txnId: record.txnId || "",
+      user: record.user || "",
+      type: record.type || "",
+      gatewayName: record.gatewayName || "",
+      claimStatus: record.claimStatus || "",
+      orderId: record.orderId || "",
+      date: record.date || "",
+      additionalInfo: record.additionalInfo || "",
     });
   };
 
@@ -143,69 +163,6 @@ export default function DonarList() {
 
   return (
     <div className="cms-container fade-in">
-      {/* Metrics Section */}
-      <div className="cms-metrics">
-        <div className="metric-card">
-          <div
-            className="metric-icon-bg"
-            style={{ backgroundColor: "#ecfdf5", color: "#059669" }}
-          >
-            🪙
-          </div>
-          <div className="metric-details">
-            <p>Total Raised</p>
-            <h3>
-              {new Intl.NumberFormat("en-IN", {
-                style: "currency",
-                currency: "INR",
-                maximumFractionDigits: 0,
-              }).format(totalRaised)}
-            </h3>
-          </div>
-        </div>
-
-        <div className="metric-card">
-          <div
-            className="metric-icon-bg"
-            style={{ backgroundColor: "#eff6ff", color: "#2563eb" }}
-          >
-            👥
-          </div>
-          <div className="metric-details">
-            <p>Active Donors</p>
-            <h3>{numDonors}</h3>
-          </div>
-        </div>
-
-        <div className="metric-card">
-          <div
-            className="metric-icon-bg"
-            style={{ backgroundColor: "#fef3c7", color: "#d97706" }}
-          >
-            📈
-          </div>
-          <div className="metric-details">
-            <p>Average Ticket</p>
-            <h3>₹{averageDonation}</h3>
-          </div>
-        </div>
-
-        <div className="metric-card">
-          <div
-            className="metric-icon-bg"
-            style={{ backgroundColor: "#fdf2f8", color: "#db2777" }}
-          >
-            📊
-          </div>
-          <div className="metric-details">
-            <p>Online vs Cash</p>
-            <h3 style={{ fontSize: "1.1rem" }}>
-              ₹{onlineTotal} / ₹{cashTotal}
-            </h3>
-          </div>
-        </div>
-      </div>
-
       {/* Main Database Table Panel */}
       <div className="cms-records-panel">
         <div className="cms-toolbar">
@@ -278,10 +235,11 @@ export default function DonarList() {
               <thead>
                 <tr>
                   <th>Donor Profile</th>
-                  <th>Contribution</th>
-                  <th>Payment Type</th>
-                  <th>Log Status</th>
-                  <th>Action Logs</th>
+                  <th>Contact & Address</th>
+                  <th>Amount & Date</th>
+                  <th>Payment Details</th>
+                  <th>Tax & Claim Info</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -290,12 +248,17 @@ export default function DonarList() {
                     <td>
                       <div className="donor-name-cell">{d.donorName}</div>
                       <div className="donor-subinfo">{d.donorEmail}</div>
+                    </td>
+                    <td>
                       {d.donorPhone && (
+                        <div className="donor-subinfo">📞 {d.donorPhone}</div>
+                      )}
+                      {d.address && (
                         <div
                           className="donor-subinfo"
-                          style={{ fontSize: "0.7rem" }}
+                          style={{ fontSize: "0.75rem" }}
                         >
-                          📞 {d.donorPhone}
+                          📍 {d.address.substring(0, 30)}...
                         </div>
                       )}
                     </td>
@@ -305,11 +268,8 @@ export default function DonarList() {
                         className="donor-subinfo"
                         style={{ fontSize: "0.75rem" }}
                       >
-                        {new Date(d.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {d.date ||
+                          new Date(d.createdAt).toLocaleDateString("en-IN")}
                       </div>
                     </td>
                     <td>
@@ -318,13 +278,23 @@ export default function DonarList() {
                       >
                         {d.paymentMode === "CASH" ? "💵 Cash" : "🌐 Online"}
                       </span>
-                    </td>
-                    <td>
+                      <br />
                       <span
                         className={`badge badge-${d.paymentStatus.toLowerCase()}`}
+                        style={{ marginTop: "0.3rem" }}
                       >
                         {d.paymentStatus}
                       </span>
+                    </td>
+                    <td>
+                      {d.panNo && (
+                        <div className="donor-subinfo">PAN: {d.panNo}</div>
+                      )}
+                      {d.claimStatus && (
+                        <div className="donor-subinfo">
+                          Claim: {d.claimStatus}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div className="cms-actions">
@@ -385,6 +355,7 @@ export default function DonarList() {
               </button>
             </div>
             <form onSubmit={handleEditSubmit}>
+              {/* Basic Info */}
               <div className="form-group">
                 <label>Donor Full Name</label>
                 <input
@@ -420,6 +391,19 @@ export default function DonarList() {
                   }
                 />
               </div>
+              <div className="form-group">
+                <label>Address</label>
+                <textarea
+                  className="form-input"
+                  rows="2"
+                  value={editForm.address}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, address: e.target.value })
+                  }
+                />
+              </div>
+
+              {/* Payment Info */}
               <div className="form-group">
                 <label>Donation Amount (INR)</label>
                 <input
@@ -471,6 +455,112 @@ export default function DonarList() {
                   </select>
                 </div>
               </div>
+
+              {/* Tax & Transaction Info */}
+              <div className="form-group">
+                <label>PAN Number</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.panNo}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, panNo: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Transaction ID</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.txnId}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, txnId: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Order ID</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.orderId}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, orderId: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Payment Type</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.type}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, type: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Gateway Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.gatewayName}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, gatewayName: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Claim Status</label>
+                <select
+                  className="form-input"
+                  value={editForm.claimStatus}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, claimStatus: e.target.value })
+                  }
+                >
+                  <option value="">Select Status</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="REJECTED">REJECTED</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>User Reference</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.user}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, user: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={editForm.date}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, date: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Additional Information</label>
+                <textarea
+                  className="form-input"
+                  rows="3"
+                  value={editForm.additionalInfo}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, additionalInfo: e.target.value })
+                  }
+                />
+              </div>
+
               <div className="modal-buttons">
                 <button
                   type="button"

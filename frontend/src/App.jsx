@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import "./index.css";
+import "./styles/admin-login.css";
+import "./styles/admin-dashboard.css";
 import OnlineDonation from "./components/OnlineDonation";
 import AdminLogin from "./admin/AdminLogin";
 import AdminDashboard from "./admin/AdminDashboard";
@@ -10,7 +12,12 @@ import {
 } from "./utils/axiosConfig";
 
 function App() {
-  const [activeTab, setActiveTab] = useState("home");
+  const [activeTab, setActiveTab] = useState(() => {
+    const path = window.location.pathname;
+    if (path.includes("/admin")) return "admin";
+    if (path.includes("/donate")) return "donate";
+    return "home";
+  });
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     return sessionStorage.getItem("admin_session") === "true";
   });
@@ -19,6 +26,17 @@ function App() {
   useEffect(() => {
     setupAxiosInterceptors();
     initializeJWTToken();
+
+    // Listen to URL changes
+    const handlePathChange = () => {
+      const path = window.location.pathname;
+      if (path.includes("/admin")) setActiveTab("admin");
+      else if (path.includes("/donate")) setActiveTab("donate");
+      else setActiveTab("home");
+    };
+
+    window.addEventListener("popstate", handlePathChange);
+    return () => window.removeEventListener("popstate", handlePathChange);
   }, []);
 
   const handleLoginSuccess = () => {

@@ -1,10 +1,5 @@
 import PDFDocument from "pdfkit";
 import Donation from "../models/donation.models.js";
-import {
-  checkRecordExists,
-  handleControllerError,
-  BadRequestError,
-} from "../utils/errorHandler.js";
 
 // Generate and stream the certificate PDF
 export const downloadCertificate = async (req, res) => {
@@ -12,12 +7,18 @@ export const downloadCertificate = async (req, res) => {
 
   try {
     const donation = await Donation.findById(id);
-    checkRecordExists(donation, "Donation");
+    if (!donation) {
+      return res.status(404).json({
+        success: false,
+        message: "Donation not found",
+      });
+    }
 
     if (donation.paymentStatus !== "SUCCESS") {
-      throw new BadRequestError(
-        "Certificate can only be generated for successful donations",
-      );
+      return res.status(400).json({
+        success: false,
+        message: "Certificate can only be generated for successful donations",
+      });
     }
 
     // Set response headers to force download as a PDF
@@ -132,9 +133,11 @@ export const downloadCertificate = async (req, res) => {
     doc.moveDown(0.8);
 
     // Contribution detail
-    const formattedAmount = "Rs. " + new Intl.NumberFormat("en-IN", {
-      maximumFractionDigits: 0,
-    }).format(donation.amount);
+    const formattedAmount =
+      "Rs. " +
+      new Intl.NumberFormat("en-IN", {
+        maximumFractionDigits: 0,
+      }).format(donation.amount);
 
     doc
       .fillColor("#374151")
@@ -272,6 +275,11 @@ export const downloadCertificate = async (req, res) => {
     // End Document stream
     doc.end();
   } catch (error) {
-    handleControllerError(error, res, "Certificate Generation");
+    console.error("Certificate Generation Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate certificate",
+      error: error.message,
+    });
   }
 };

@@ -1,5 +1,4 @@
-import { verifyAccessToken } from "./jwtUtils.js";
-import { AuthenticationError } from "./errorHandler.js";
+import { verifyAccessToken } from "../utils/jwtUtils.js";
 
 // ============================================================================
 // JWT AUTHENTICATION MIDDLEWARE
@@ -15,23 +14,21 @@ export const verifyJWTMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new AuthenticationError("Missing or invalid Authorization header");
+      return res.status(401).json({
+        success: false,
+        message: "Missing or invalid Authorization header",
+      });
     }
 
     const token = authHeader.slice(7); // Remove "Bearer " prefix
 
-    try {
-      const decoded = verifyAccessToken(token);
-      req.user = decoded;
-      next();
-    } catch (error) {
-      throw new AuthenticationError(error.message);
-    }
+    const decoded = verifyAccessToken(token);
+    req.user = decoded;
+    next();
   } catch (error) {
-    return res.status(error.statusCode || 401).json({
+    return res.status(401).json({
       success: false,
       message: error.message || "Authentication failed",
-      error: error.message,
     });
   }
 };

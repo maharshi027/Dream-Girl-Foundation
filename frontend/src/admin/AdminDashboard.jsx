@@ -1,37 +1,141 @@
 import React, { useState } from "react";
 import DonarList from "../donar/DonarList";
 import AdminCashEntry from "./AdminCashEntry";
+import AdminStatsDashboard from "./AdminStatsDashboard";
 
 export default function AdminDashboard({ onLogout }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeMenu, setActiveMenu] = useState("dashboard");
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRecordAdded = () => {
-    // Incrementing key forces DonarList to remount and re-fetch database logs
     setRefreshKey((prevKey) => prevKey + 1);
   };
 
-  return (
-    <div className="cms-dashboard fade-in">
-      <div className="cms-header">
-        <div>
-          <h2>Donor Records CMS Portal</h2>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-light)" }}>
-            Management panel for tracking contributions, offline receipts, and tax certificates.
-          </p>
-        </div>
-        <button className="btn-logout" onClick={onLogout}>
-          Exit Admin Session
-        </button>
-      </div>
+  const handleLogout = () => {
+    localStorage.clear();
+    delete window.axios?.defaults.headers.common["Authorization"];
+    onLogout();
+  };
 
-      <div className="cms-workspace">
-        <div className="cms-workspace-list">
-          {/* We mount DonarList with refreshKey so that it re-polls API on cash log */}
-          <DonarList key={refreshKey} />
+  const getPageTitle = () => {
+    switch (activeMenu) {
+      case "dashboard":
+        return "Dashboard";
+      case "donor-list":
+        return "Donor List";
+      case "donation-entry":
+        return "Record Donation";
+      case "apply-claim":
+        return "Apply for Claim";
+      case "view-claim":
+        return "View Claim Status";
+      default:
+        return "Admin Dashboard";
+    }
+  };
+
+  return (
+    <div className="admin-dashboard-wrapper">
+      {/* Sidebar */}
+      <aside className={`admin-sidebar ${sidebarOpen ? "open" : "closed"}`}>
+        <div className="sidebar-header">
+          <h2 className="sidebar-title">Dream Girl CMS</h2>
         </div>
-        <div className="cms-workspace-form">
-          <AdminCashEntry onRecordAdded={handleRecordAdded} />
+        <nav className="sidebar-nav">
+          <button
+            className={`sidebar-item ${activeMenu === "dashboard" ? "active" : ""}`}
+            onClick={() => setActiveMenu("dashboard")}
+          >
+            📊 Dashboard
+          </button>
+          <button
+            className={`sidebar-item ${activeMenu === "donor-list" ? "active" : ""}`}
+            onClick={() => setActiveMenu("donor-list")}
+          >
+            👥 Donor List
+          </button>
+          <button
+            className={`sidebar-item ${activeMenu === "donation-entry" ? "active" : ""}`}
+            onClick={() => setActiveMenu("donation-entry")}
+          >
+            💰 Donation Entry
+          </button>
+          <button
+            className={`sidebar-item ${activeMenu === "apply-claim" ? "active" : ""}`}
+            onClick={() => setActiveMenu("apply-claim")}
+          >
+            📝 Apply Claim
+          </button>
+          <button
+            className={`sidebar-item ${activeMenu === "view-claim" ? "active" : ""}`}
+            onClick={() => setActiveMenu("view-claim")}
+          >
+            ✅ View Claim
+          </button>
+        </nav>
+        <div className="sidebar-footer">
+          <button className="logout-btn" onClick={handleLogout}>
+            🚪 Logout
+          </button>
         </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="admin-main-content">
+        {/* Top Header */}
+        <header className="admin-top-header">
+          <button
+            className="hamburger-toggle"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            title="Toggle sidebar"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <h1 className="page-title">{getPageTitle()}</h1>
+          <div className="header-right">
+            <span className="user-email">
+              {localStorage.getItem("adminEmail")}
+            </span>
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <main className="admin-content-area">
+          {activeMenu === "dashboard" && (
+            <div className="content-section fade-in">
+              <AdminStatsDashboard />
+            </div>
+          )}
+
+          {activeMenu === "donor-list" && (
+            <div className="content-section fade-in">
+              <DonarList key={refreshKey} />
+            </div>
+          )}
+
+          {activeMenu === "donation-entry" && (
+            <div className="content-section fade-in">
+              <AdminCashEntry onRecordAdded={handleRecordAdded} />
+            </div>
+          )}
+
+          {activeMenu === "apply-claim" && (
+            <div className="content-section fade-in">
+              <h2>Apply for Claim</h2>
+              <p>Claim application form coming soon...</p>
+            </div>
+          )}
+
+          {activeMenu === "view-claim" && (
+            <div className="content-section fade-in">
+              <h2>View Claim Status</h2>
+              <p>Claim status tracker coming soon...</p>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

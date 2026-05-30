@@ -1,22 +1,28 @@
 import Donation from "../models/donation.models.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
-import {
-  validateRequired,
-  validateAmount,
-  checkRecordExists,
-  handleControllerError,
-  ValidationError,
-  BadRequestError,
-} from "../utils/errorHandler.js";
 
 // Initiate an online donation order
 export const initiateOnline = async (req, res) => {
   const { name, email, phone, amount } = req.body || {};
 
   try {
-    validateRequired({ name, email, amount }, ["name", "email", "amount"]);
-    const numericAmount = validateAmount(amount);
+    // Validate required fields
+    if (!name || !email || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and amount are required",
+      });
+    }
+
+    // Validate amount
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid donation amount",
+      });
+    }
 
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -69,7 +75,12 @@ export const initiateOnline = async (req, res) => {
       simulation: isSimulation,
     });
   } catch (error) {
-    handleControllerError(error, res, "Initiate Online Donation");
+    console.error("Initiate Online Donation Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to initiate online donation",
+      error: error.message,
+    });
   }
 };
 
@@ -80,7 +91,10 @@ export const verifyOnline = async (req, res) => {
 
   try {
     if (!razorpay_order_id || !razorpay_payment_id) {
-      throw new ValidationError("Payment parameters missing");
+      return res.status(400).json({
+        success: false,
+        message: "Payment parameters missing",
+      });
     }
 
     const isMock = razorpay_order_id.startsWith("order_mock_");
@@ -89,7 +103,13 @@ export const verifyOnline = async (req, res) => {
       const donation = await Donation.findOne({
         razorpayOrderId: razorpay_order_id,
       });
-      checkRecordExists(donation, "Donation");
+
+      if (!donation) {
+        return res.status(404).json({
+          success: false,
+          message: "Donation not found",
+        });
+      }
 
       donation.paymentStatus = "SUCCESS";
       donation.razorpayPaymentId = razorpay_payment_id;
@@ -114,7 +134,13 @@ export const verifyOnline = async (req, res) => {
       const donation = await Donation.findOne({
         razorpayOrderId: razorpay_order_id,
       });
-      checkRecordExists(donation, "Donation");
+
+      if (!donation) {
+        return res.status(404).json({
+          success: false,
+          message: "Donation not found",
+        });
+      }
 
       donation.paymentStatus = "SUCCESS";
       donation.razorpayPaymentId = razorpay_payment_id;
@@ -136,9 +162,17 @@ export const verifyOnline = async (req, res) => {
       await donation.save();
     }
 
-    throw new BadRequestError("Invalid payment signature");
+    return res.status(400).json({
+      success: false,
+      message: "Invalid payment signature",
+    });
   } catch (error) {
-    handleControllerError(error, res, "Verify Online Payment");
+    console.error("Verify Online Payment Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify payment",
+      error: error.message,
+    });
   }
 };
 
@@ -147,8 +181,22 @@ export const recordCash = async (req, res) => {
   const { name, email, phone, amount } = req.body || {};
 
   try {
-    validateRequired({ name, email, amount }, ["name", "email", "amount"]);
-    const numericAmount = validateAmount(amount);
+    // Validate required fields
+    if (!name || !email || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and amount are required",
+      });
+    }
+
+    // Validate amount
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid donation amount",
+      });
+    }
 
     const donation = new Donation({
       donorName: name,
@@ -167,7 +215,12 @@ export const recordCash = async (req, res) => {
       donationId: donation._id,
     });
   } catch (error) {
-    handleControllerError(error, res, "Record Cash Donation");
+    console.error("Record Cash Donation Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to record cash donation",
+      error: error.message,
+    });
   }
 };
 
@@ -177,7 +230,12 @@ export const getAllRecords = async (req, res) => {
     const donations = await Donation.find().sort({ createdAt: -1 });
     res.status(200).json(donations);
   } catch (error) {
-    handleControllerError(error, res, "Fetch All Donation Records");
+    console.error("Fetch All Donation Records Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch donation records",
+      error: error.message,
+    });
   }
 };
 
@@ -195,12 +253,26 @@ export const updateRecord = async (req, res) => {
 
   try {
     const donation = await Donation.findById(id);
-    checkRecordExists(donation, "Donation");
+    if (!donation) {
+      return res.status(404).json({
+        success: false,
+        message: "Donation not found",
+      });
+    }
 
     if (donorName) donation.donorName = donorName;
     if (donorEmail) donation.donorEmail = donorEmail;
     if (donorPhone !== undefined) donation.donorPhone = donorPhone;
-    if (amount) donation.amount = validateAmount(amount);
+    if (amount) {
+      const numericAmount = parseFloat(amount);
+      if (isNaN(numericAmount) || numericAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid donation amount",
+        });
+      }
+      donation.amount = numericAmount;
+    }
     if (paymentMode) donation.paymentMode = paymentMode;
     if (paymentStatus) donation.paymentStatus = paymentStatus;
 
@@ -212,7 +284,12 @@ export const updateRecord = async (req, res) => {
       donation,
     });
   } catch (error) {
-    handleControllerError(error, res, "Update Donation Record");
+    console.error("Update Donation Record Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update donation record",
+      error: error.message,
+    });
   }
 };
 
@@ -222,13 +299,23 @@ export const deleteRecord = async (req, res) => {
 
   try {
     const result = await Donation.findByIdAndDelete(id);
-    checkRecordExists(result, "Donation");
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Donation not found",
+      });
+    }
 
     res.status(200).json({
       success: true,
       message: "Donation record deleted successfully",
     });
   } catch (error) {
-    handleControllerError(error, res, "Delete Donation Record");
+    console.error("Delete Donation Record Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete donation record",
+      error: error.message,
+    });
   }
 };

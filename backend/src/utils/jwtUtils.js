@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import { ServerError } from "./errorHandler.js";
 
 // ============================================================================
 // JWT TOKEN GENERATION & VERIFICATION
@@ -9,70 +8,59 @@ import { ServerError } from "./errorHandler.js";
  * Generate JWT Access Token
  * @param {Object} payload - Token payload (user data)
  * @returns {string} JWT access token
- * @throws {ServerError}
  */
 export const generateAccessToken = (payload) => {
-  try {
-    const secret = process.env.JWT_ACCESS_TOKEN_SECRET;
-    const expiry = process.env.JWT_ACCESS_TOKEN_EXPIRY || "15m";
+  const secret = process.env.JWT_ACCESS_TOKEN_SECRET;
+  const expiry = process.env.JWT_ACCESS_TOKEN_EXPIRY || "15m";
 
-    if (!secret) {
-      throw new ServerError("JWT_ACCESS_TOKEN_SECRET not configured");
-    }
-
-    const token = jwt.sign(payload, secret, { expiresIn: expiry });
-    return token;
-  } catch (error) {
-    throw new ServerError(`Failed to generate access token: ${error.message}`);
+  if (!secret) {
+    throw new Error("JWT_ACCESS_TOKEN_SECRET not configured");
   }
+
+  const token = jwt.sign(payload, secret, { expiresIn: expiry });
+  return token;
 };
 
 /**
  * Generate JWT Refresh Token
  * @param {Object} payload - Token payload (user data)
  * @returns {string} JWT refresh token
- * @throws {ServerError}
  */
 export const generateRefreshToken = (payload) => {
-  try {
-    const secret = process.env.JWT_REFRESH_TOKEN_SECRET;
-    const expiry = process.env.JWT_REFRESH_TOKEN_EXPIRY || "7d";
+  const secret = process.env.JWT_REFRESH_TOKEN_SECRET;
+  const expiry = process.env.JWT_REFRESH_TOKEN_EXPIRY || "7d";
 
-    if (!secret) {
-      throw new ServerError("JWT_REFRESH_TOKEN_SECRET not configured");
-    }
-
-    const token = jwt.sign(payload, secret, { expiresIn: expiry });
-    return token;
-  } catch (error) {
-    throw new ServerError(`Failed to generate refresh token: ${error.message}`);
+  if (!secret) {
+    throw new Error("JWT_REFRESH_TOKEN_SECRET not configured");
   }
+
+  const token = jwt.sign(payload, secret, { expiresIn: expiry });
+  return token;
 };
 
 /**
  * Verify JWT Access Token
  * @param {string} token - JWT token to verify
  * @returns {Object} Decoded token payload
- * @throws {ServerError}
  */
 export const verifyAccessToken = (token) => {
+  const secret = process.env.JWT_ACCESS_TOKEN_SECRET;
+
+  if (!secret) {
+    throw new Error("JWT_ACCESS_TOKEN_SECRET not configured");
+  }
+
   try {
-    const secret = process.env.JWT_ACCESS_TOKEN_SECRET;
-
-    if (!secret) {
-      throw new ServerError("JWT_ACCESS_TOKEN_SECRET not configured");
-    }
-
     const decoded = jwt.verify(token, secret);
     return decoded;
   } catch (error) {
     if (error.name === "TokenExpiredError") {
-      throw new ServerError("Access token has expired");
+      throw new Error("Access token has expired");
     }
     if (error.name === "JsonWebTokenError") {
-      throw new ServerError("Invalid access token");
+      throw new Error("Invalid access token");
     }
-    throw new ServerError(`Token verification failed: ${error.message}`);
+    throw new Error(`Token verification failed: ${error.message}`);
   }
 };
 
@@ -80,24 +68,23 @@ export const verifyAccessToken = (token) => {
  * Verify JWT Refresh Token
  * @param {string} token - JWT refresh token to verify
  * @returns {Object} Decoded token payload
- * @throws {ServerError}
  */
 export const verifyRefreshToken = (token) => {
+  const secret = process.env.JWT_REFRESH_TOKEN_SECRET;
+
+  if (!secret) {
+    throw new Error("JWT_REFRESH_TOKEN_SECRET not configured");
+  }
+
   try {
-    const secret = process.env.JWT_REFRESH_TOKEN_SECRET;
-
-    if (!secret) {
-      throw new ServerError("JWT_REFRESH_TOKEN_SECRET not configured");
-    }
-
     const decoded = jwt.verify(token, secret);
     return decoded;
   } catch (error) {
     if (error.name === "TokenExpiredError") {
-      throw new ServerError("Refresh token has expired");
+      throw new Error("Refresh token has expired");
     }
     if (error.name === "JsonWebTokenError") {
-      throw new ServerError("Invalid refresh token");
+      throw new Error("Invalid refresh token");
     }
     throw new ServerError(
       `Refresh token verification failed: ${error.message}`,

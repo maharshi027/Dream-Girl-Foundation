@@ -8,9 +8,7 @@ import {
   setupAuthRoutes,
   setupDonationRoutes,
   setupCertificateRoutes,
-  setupErrorHandler,
 } from "./src/app.js";
-import { globalErrorHandler } from "./src/utils/errorHandler.js";
 
 dotenv.config();
 
@@ -46,8 +44,6 @@ setupRootRoute(app);
 setupAuthRoutes(app);
 setupDonationRoutes(app);
 setupCertificateRoutes(app);
-setupErrorHandler(app);
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

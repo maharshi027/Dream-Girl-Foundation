@@ -12,7 +12,6 @@ import {
   deleteRecord,
 } from "./controllers/donation.controller.js";
 import { downloadCertificate } from "./controllers/certificate.controller.js";
-import { globalErrorHandler } from "./utils/errorHandler.js";
 
 // ============================================================================
 // ROOT ROUTE
@@ -53,6 +52,3 @@ export const setupCertificateRoutes = (app) => {
 // ============================================================================
 // ERROR HANDLER
 // ============================================================================
-export const setupErrorHandler = (app) => {
-  app.use(globalErrorHandler);
-};
