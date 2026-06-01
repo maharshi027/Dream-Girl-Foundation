@@ -15,13 +15,29 @@ const donationSchema = new mongoose.Schema(
     },
     donorPhone: {
       type: String,
+      required: true,
       trim: true,
-      default: "",
     },
     amount: {
       type: Number,
       required: true,
       min: 1,
+    },
+    donorAddress: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    panNo: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    donationDate: {
+      type: Date,
+      required: true,
+      default: Date.now,
     },
     paymentMode: {
       type: String,
@@ -44,6 +60,11 @@ const donationSchema = new mongoose.Schema(
     razorpaySignature: {
       type: String,
       default: "",
+    },
+    transactionId: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
   },
   {

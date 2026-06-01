@@ -8,6 +8,7 @@ import {
   setupAuthRoutes,
   setupDonationRoutes,
   setupCertificateRoutes,
+  setupReceiptRoutes,
 } from "./src/app.js";
 
 dotenv.config();
@@ -44,6 +45,7 @@ setupRootRoute(app);
 setupAuthRoutes(app);
 setupDonationRoutes(app);
 setupCertificateRoutes(app);
+setupReceiptRoutes(app);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

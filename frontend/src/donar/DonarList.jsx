@@ -46,24 +46,6 @@ export default function DonarList() {
   useEffect(() => {
     fetchDonations();
   }, []);
-
-  const handleDelete = async (id) => {
-    if (
-      window.confirm(
-        "Are you sure you want to permanently delete this donor record?",
-      )
-    ) {
-      try {
-        await axios.delete(`/api/donations/delete/${id}`);
-        alert("Record deleted successfully.");
-        fetchDonations();
-      } catch (err) {
-        console.error(err);
-        alert("Failed to delete record.");
-      }
-    }
-  };
-
   const handleEditClick = (record) => {
     setEditingRecord(record);
     setEditForm({
@@ -299,38 +281,47 @@ export default function DonarList() {
                     <td>
                       <div className="cms-actions">
                         {d.paymentStatus === "SUCCESS" ? (
-                          <a
-                            href={`${import.meta.env.VITE_APP_URL}/api/certificate/download-certificate/${d._id}`}
-                            className="action-btn action-btn-print"
-                            title="Download Certificate"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            🖨️
-                          </a>
+                          <>
+                            <a
+                              href={`${import.meta.env.VITE_APP_URL}/api/receipt/download-receipt/${d._id}`}
+                              className="action-btn action-btn-receipt"
+                              title="Download Transaction Receipt"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              📄
+                            </a>
+                            <a
+                              href={`${import.meta.env.VITE_APP_URL}/api/certificate/download-certificate/${d._id}`}
+                              className="action-btn action-btn-print"
+                              title="Download Certificate"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              🖨️
+                            </a>
+                          </>
                         ) : (
-                          <button
-                            className="action-btn"
-                            style={{ opacity: 0.3, cursor: "not-allowed" }}
-                            disabled
-                          >
-                            🖨️
-                          </button>
+                          <>
+                            <button
+                              className="action-btn"
+                              style={{ opacity: 0.3, cursor: "not-allowed" }}
+                              disabled
+                              title="Receipt available after payment success"
+                            >
+                              📄
+                            </button>
+                            <button
+                              className="action-btn"
+                              style={{ opacity: 0.3, cursor: "not-allowed" }}
+                              disabled
+                              title="Certificate available after payment success"
+                            >
+                              🖨️
+                            </button>
+                          </>
                         )}
-                        <button
-                          className="action-btn action-btn-edit"
-                          title="Edit Record"
-                          onClick={() => handleEditClick(d)}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          className="action-btn action-btn-delete"
-                          title="Delete Record"
-                          onClick={() => handleDelete(d._id)}
-                        >
-                          🗑️
-                        </button>
+                       
                       </div>
                     </td>
                   </tr>

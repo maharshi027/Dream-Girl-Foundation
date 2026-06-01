@@ -6,16 +6,39 @@ export default function OnlineDonation() {
     name: "",
     email: "",
     phone: "",
+    address: "",
+    panNo: "",
     amount: "",
   });
   const [loading, setLoading] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [successData, setSuccessData] = useState(null);
 
   // Simulation state
   const [simulationData, setSimulationData] = useState(null);
   const [showSimModal, setShowSimModal] = useState(false);
 
   const presetAmounts = [250, 500, 1000, 2500, 5000];
+
+  const validateForm = () => {
+    const newErrors = {};
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+    if (!formData.name.trim()) newErrors.name = "Name is required";
+    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
+      newErrors.email = "Invalid email";
+    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
+    if (!formData.address.trim()) newErrors.address = "Address is required";
+    if (!formData.panNo.trim()) newErrors.panNo = "PAN number is required";
+    if (!panRegex.test(formData.panNo.toUpperCase()))
+      newErrors.panNo = "Invalid PAN format";
+    if (!formData.amount || parseFloat(formData.amount) <= 0)
+      newErrors.amount = "Amount must be > 0";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handlePresetSelect = (amount) => {
     setSelectedPreset(amount);
@@ -27,8 +50,18 @@ export default function OnlineDonation() {
     setFormData({ ...formData, amount: e.target.value });
   };
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
+  };
+
   const handlePaySubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     setLoading(true);
 
     try {
@@ -49,7 +82,7 @@ export default function OnlineDonation() {
         } else {
           // Real Razorpay flow
           const options = {
-            key: "YOUR_RAZORPAY_KEY_ID", // Will fallback or read backend if configured
+            key: "YOUR_RAZORPAY_KEY_ID",
             amount: data.order.amount,
             currency: "INR",
             name: "Dream Girl Foundation",
@@ -62,15 +95,17 @@ export default function OnlineDonation() {
                   response,
                 );
                 if (verifyRes.data.success) {
-                  alert(
-                    "Donation Successful! Opening Tax Exemption Certificate...",
-                  );
-                  window.open(
-                    `${import.meta.env.VITE_APP_URL}/api/certificate/download-certificate/${verifyRes.data.donationId}`,
-                    "_blank",
-                  );
-                  // Reset form
-                  setFormData({ name: "", email: "", phone: "", amount: "" });
+                  setSuccessData({
+                    donationId: verifyRes.data.donationId,
+                  });
+                  setFormData({
+                    name: "",
+                    email: "",
+                    phone: "",
+                    address: "",
+                    panNo: "",
+                    amount: "",
+                  });
                   setSelectedPreset(null);
                 }
               } catch (err) {
@@ -126,14 +161,17 @@ export default function OnlineDonation() {
       );
 
       if (verifyRes.data.success) {
-        alert("Simulated Donation Successful! Thank you for your support.");
-        // Open PDF certificate download in new tab
-        window.open(
-          `${import.meta.env.VITE_APP_URL}/api/certificate/download-certificate/${verifyRes.data.donationId}`,
-          "_blank",
-        );
-        // Reset form
-        setFormData({ name: "", email: "", phone: "", amount: "" });
+        setSuccessData({
+          donationId: verifyRes.data.donationId,
+        });
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          address: "",
+          panNo: "",
+          amount: "",
+        });
         setSelectedPreset(null);
       }
     } catch (error) {
@@ -145,6 +183,39 @@ export default function OnlineDonation() {
     }
   };
 
+  // Success screen with download options
+  if (successData) {
+    return (
+      <div className="success-screen fade-in">
+        <div className="success-card">
+          <div className="success-icon">✅</div>
+          <h2>Payment Successful!</h2>
+          <p>Thank you for your generous donation to Dream Girl Foundation.</p>
+          <p className="success-details">
+            Your transaction has been completed and recorded securely.
+          </p>
+
+          <div className="download-actions">
+            <a
+              href={`${import.meta.env.VITE_APP_URL}/api/certificate/download-certificate/${successData.donationId}`}
+              className="btn btn-download-certificate"
+              download
+            >
+              🖨️ Download Tax Exemption Certificate
+            </a>
+          </div>
+
+          <button
+            className="btn btn-new-donation"
+            onClick={() => setSuccessData(null)}
+          >
+            Make Another Donation
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: "relative" }}>
       <form onSubmit={handlePaySubmit} className="donation-form fade-in">
@@ -154,93 +225,144 @@ export default function OnlineDonation() {
           to underprivileged girls.
         </p>
 
-        {/* Amount Chips Selection */}
-        <div className="form-group">
-          <label>Select Donation Amount (INR)</label>
-          <div className="amount-selector">
-            {presetAmounts.map((amt) => (
-              <div
-                key={amt}
-                className={`amount-chip ${selectedPreset === amt ? "selected" : ""}`}
-                onClick={() => handlePresetSelect(amt)}
-              >
-                ₹{amt}
-              </div>
-            ))}
+        {/* AMOUNT SECTION */}
+        <div className="form-section">
+          <h4 className="section-title">💵 Donation Amount</h4>
+
+          <div className="form-group">
+            <label>Select Donation Amount (INR)</label>
+            <div className="amount-selector">
+              {presetAmounts.map((amt) => (
+                <div
+                  key={amt}
+                  className={`amount-chip ${selectedPreset === amt ? "selected" : ""}`}
+                  onClick={() => handlePresetSelect(amt)}
+                >
+                  ₹{amt}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="custom-amount">
+              Or Enter Custom Amount (INR) *
+            </label>
+            <div className="input-icon-wrapper">
+              <span className="input-icon">₹</span>
+              <input
+                id="custom-amount"
+                type="number"
+                className={`form-input form-input-with-icon ${errors.amount ? "input-error" : ""}`}
+                placeholder="Other amount..."
+                name="amount"
+                value={formData.amount}
+                onChange={handleAmountChange}
+                required
+                min="1"
+              />
+            </div>
+            {errors.amount && (
+              <span className="error-text">{errors.amount}</span>
+            )}
           </div>
         </div>
 
-        {/* Custom Amount Input */}
-        <div className="form-group">
-          <label htmlFor="custom-amount">Or Enter Custom Amount (INR)</label>
-          <div className="input-icon-wrapper">
-            <span className="input-icon">₹</span>
-            <input
-              id="custom-amount"
-              type="number"
-              className="form-input form-input-with-icon"
-              placeholder="Other amount..."
-              value={formData.amount}
-              onChange={handleAmountChange}
+        {/* DONOR INFORMATION SECTION */}
+        <div className="form-section">
+          <h4 className="section-title">👤 Your Information</h4>
+
+          <div className="form-group">
+            <label htmlFor="donor-name">Full Name *</label>
+            <div className="input-icon-wrapper">
+              <span className="input-icon">👤</span>
+              <input
+                id="donor-name"
+                type="text"
+                className={`form-input form-input-with-icon ${errors.name ? "input-error" : ""}`}
+                placeholder="Enter full name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            {errors.name && <span className="error-text">{errors.name}</span>}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="donor-email">Email Address *</label>
+            <div className="input-icon-wrapper">
+              <span className="input-icon">✉️</span>
+              <input
+                id="donor-email"
+                type="email"
+                className={`form-input form-input-with-icon ${errors.email ? "input-error" : ""}`}
+                placeholder="donor@example.com"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            {errors.email && <span className="error-text">{errors.email}</span>}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="donor-phone">Phone Number *</label>
+            <div className="input-icon-wrapper">
+              <span className="input-icon">📞</span>
+              <input
+                id="donor-phone"
+                type="tel"
+                className={`form-input form-input-with-icon ${errors.phone ? "input-error" : ""}`}
+                placeholder="+91 XXXXX XXXXX"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            {errors.phone && <span className="error-text">{errors.phone}</span>}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="donor-address">Address *</label>
+            <textarea
+              id="donor-address"
+              className={`form-input form-textarea ${errors.address ? "input-error" : ""}`}
+              placeholder="Enter complete address"
+              name="address"
+              rows="2"
+              value={formData.address}
+              onChange={handleInputChange}
               required
-              min="1"
             />
+            {errors.address && (
+              <span className="error-text">{errors.address}</span>
+            )}
           </div>
-        </div>
 
-        {/* Donor Name */}
-        <div className="form-group">
-          <label htmlFor="donor-name">Full Name</label>
-          <div className="input-icon-wrapper">
-            <span className="input-icon">👤</span>
+          <div className="form-group">
+            <label htmlFor="donor-pan">PAN Number *</label>
             <input
-              id="donor-name"
+              id="donor-pan"
               type="text"
-              className="form-input form-input-with-icon"
-              placeholder="Enter full name"
-              value={formData.name}
+              className={`form-input ${errors.panNo ? "input-error" : ""}`}
+              placeholder="ABCDE1234F"
+              name="panNo"
+              value={formData.panNo}
               onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
+                handleInputChange({
+                  target: {
+                    name: "panNo",
+                    value: e.target.value.toUpperCase(),
+                  },
+                })
               }
               required
             />
-          </div>
-        </div>
-
-        {/* Email Address */}
-        <div className="form-group">
-          <label htmlFor="donor-email">Email Address</label>
-          <div className="input-icon-wrapper">
-            <span className="input-icon">✉️</span>
-            <input
-              id="donor-email"
-              type="email"
-              className="form-input form-input-with-icon"
-              placeholder="donor@example.com"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-              required
-            />
-          </div>
-        </div>
-
-        {/* Phone Number */}
-        <div className="form-group">
-          <label htmlFor="donor-phone">Phone Number (Optional)</label>
-          <div className="input-icon-wrapper">
-            <span className="input-icon">📞</span>
-            <input
-              id="donor-phone"
-              type="tel"
-              className="form-input form-input-with-icon"
-              placeholder="+91 XXXXX XXXXX"
-              value={formData.phone}
-              onChange={(e) =>
-                setFormData({ ...formData, phone: e.target.value })
-              }
-            />
+            {errors.panNo && <span className="error-text">{errors.panNo}</span>}
           </div>
         </div>
 
@@ -251,7 +373,7 @@ export default function OnlineDonation() {
         >
           {loading
             ? "Processing Securely..."
-            : `Donate ₹${formData.amount || "0"}`}
+            : `Proceed to Payment: ₹${formData.amount || "0"}`}
         </button>
       </form>
 

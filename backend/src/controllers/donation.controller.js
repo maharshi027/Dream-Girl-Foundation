@@ -4,14 +4,15 @@ import crypto from "crypto";
 
 // Initiate an online donation order
 export const initiateOnline = async (req, res) => {
-  const { name, email, phone, amount } = req.body || {};
+  const { name, email, phone, amount, address, panNo } = req.body || {};
 
   try {
     // Validate required fields
-    if (!name || !email || !amount) {
+    if (!name || !email || !phone || !amount || !address || !panNo) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, and amount are required",
+        message:
+          "Name, email, phone, amount, address, and PAN number are required",
       });
     }
 
@@ -21,6 +22,15 @@ export const initiateOnline = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid donation amount",
+      });
+    }
+
+    // Validate PAN format
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!panRegex.test(panNo.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid PAN format. Format should be: ABCDE1234F",
       });
     }
 
@@ -56,14 +66,22 @@ export const initiateOnline = async (req, res) => {
       orderId = order.id;
     }
 
+    // Generate transaction ID
+    const transactionId =
+      "TXN" + Date.now() + Math.random().toString(36).substring(2, 11);
+
     const donation = new Donation({
       donorName: name,
       donorEmail: email,
-      donorPhone: phone || "",
+      donorPhone: phone,
       amount: numericAmount,
+      donorAddress: address,
+      panNo: panNo.toUpperCase(),
+      donationDate: new Date(),
       paymentMode: "ONLINE",
       paymentStatus: "PENDING",
       razorpayOrderId: orderId,
+      transactionId: transactionId,
     });
 
     await donation.save();
@@ -72,6 +90,7 @@ export const initiateOnline = async (req, res) => {
       success: true,
       order,
       donationId: donation._id,
+      transactionId: transactionId,
       simulation: isSimulation,
     });
   } catch (error) {
@@ -178,14 +197,16 @@ export const verifyOnline = async (req, res) => {
 
 // Record cash donation
 export const recordCash = async (req, res) => {
-  const { name, email, phone, amount } = req.body || {};
+  const { name, email, phone, amount, address, panNo, donationDate } =
+    req.body || {};
 
   try {
     // Validate required fields
-    if (!name || !email || !amount) {
+    if (!name || !email || !phone || !amount || !address || !panNo) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, and amount are required",
+        message:
+          "Name, email, phone, amount, address, and PAN number are required",
       });
     }
 
@@ -198,13 +219,30 @@ export const recordCash = async (req, res) => {
       });
     }
 
+    // Validate PAN format (basic validation)
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!panRegex.test(panNo.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid PAN format. Format should be: ABCDE1234F",
+      });
+    }
+
+    // Generate transaction ID
+    const transactionId =
+      "TXN" + Date.now() + Math.random().toString(36).substring(2, 11);
+
     const donation = new Donation({
       donorName: name,
       donorEmail: email,
-      donorPhone: phone || "",
+      donorPhone: phone,
       amount: numericAmount,
+      donorAddress: address,
+      panNo: panNo.toUpperCase(),
+      donationDate: donationDate ? new Date(donationDate) : new Date(),
       paymentMode: "CASH",
       paymentStatus: "SUCCESS",
+      transactionId: transactionId,
     });
 
     await donation.save();
@@ -213,6 +251,7 @@ export const recordCash = async (req, res) => {
       success: true,
       message: "Cash donation recorded successfully",
       donationId: donation._id,
+      transactionId: transactionId,
     });
   } catch (error) {
     console.error("Record Cash Donation Error:", error);
@@ -293,28 +332,52 @@ export const updateRecord = async (req, res) => {
   }
 };
 
-// Delete donor record
+// Delete donor record - DISABLED FOR SECURITY
 export const deleteRecord = async (req, res) => {
+  return res.status(403).json({
+    success: false,
+    message:
+      "Deletion of donor records is not permitted for security and audit purposes",
+  });
+};
+
+// Generate transaction receipt
+export const generateTransactionReceipt = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const result = await Donation.findByIdAndDelete(id);
-    if (!result) {
+    const donation = await Donation.findById(id);
+    if (!donation) {
       return res.status(404).json({
         success: false,
-        message: "Donation not found",
+        message: "Donation record not found",
       });
     }
 
+    // Return receipt data that will be used to generate PDF on frontend
     res.status(200).json({
       success: true,
-      message: "Donation record deleted successfully",
+      receipt: {
+        transactionId: donation.transactionId,
+        donorName: donation.donorName,
+        donorEmail: donation.donorEmail,
+        donorPhone: donation.donorPhone,
+        donorAddress: donation.donorAddress,
+        panNo: donation.panNo,
+        amount: donation.amount,
+        paymentMode: donation.paymentMode,
+        paymentStatus: donation.paymentStatus,
+        donationDate: donation.donationDate,
+        recordedDate: donation.createdAt,
+        razorpayPaymentId: donation.razorpayPaymentId || "N/A",
+        razorpayOrderId: donation.razorpayOrderId || "N/A",
+      },
     });
   } catch (error) {
-    console.error("Delete Donation Record Error:", error);
+    console.error("Generate Receipt Error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to delete donation record",
+      message: "Failed to generate receipt",
       error: error.message,
     });
   }

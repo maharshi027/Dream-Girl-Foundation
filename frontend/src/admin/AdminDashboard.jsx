@@ -26,10 +26,6 @@ export default function AdminDashboard({ onLogout }) {
         return "Donor List";
       case "donation-entry":
         return "Record Donation";
-      case "apply-claim":
-        return "Apply for Claim";
-      case "view-claim":
-        return "View Claim Status";
       default:
         return "Admin Dashboard";
     }
@@ -60,18 +56,6 @@ export default function AdminDashboard({ onLogout }) {
             onClick={() => setActiveMenu("donation-entry")}
           >
             💰 Donation Entry
-          </button>
-          <button
-            className={`sidebar-item ${activeMenu === "apply-claim" ? "active" : ""}`}
-            onClick={() => setActiveMenu("apply-claim")}
-          >
-            📝 Apply Claim
-          </button>
-          <button
-            className={`sidebar-item ${activeMenu === "view-claim" ? "active" : ""}`}
-            onClick={() => setActiveMenu("view-claim")}
-          >
-            ✅ View Claim
           </button>
         </nav>
         <div className="sidebar-footer">
@@ -119,20 +103,6 @@ export default function AdminDashboard({ onLogout }) {
           {activeMenu === "donation-entry" && (
             <div className="content-section fade-in">
               <AdminCashEntry onRecordAdded={handleRecordAdded} />
-            </div>
-          )}
-
-          {activeMenu === "apply-claim" && (
-            <div className="content-section fade-in">
-              <h2>Apply for Claim</h2>
-              <p>Claim application form coming soon...</p>
-            </div>
-          )}
-
-          {activeMenu === "view-claim" && (
-            <div className="content-section fade-in">
-              <h2>View Claim Status</h2>
-              <p>Claim status tracker coming soon...</p>
             </div>
           )}
         </main>

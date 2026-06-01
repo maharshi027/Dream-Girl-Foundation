@@ -12,6 +12,7 @@ import {
   deleteRecord,
 } from "./controllers/donation.controller.js";
 import { downloadCertificate } from "./controllers/certificate.controller.js";
+import { downloadTransactionReceipt } from "./controllers/receipt.controller.js";
 
 // ============================================================================
 // ROOT ROUTE
@@ -48,6 +49,13 @@ export const setupDonationRoutes = (app) => {
 // ============================================================================
 export const setupCertificateRoutes = (app) => {
   app.get("/api/certificate/download-certificate/:id", downloadCertificate);
+};
+
+// ============================================================================
+// RECEIPT ROUTES
+// ============================================================================
+export const setupReceiptRoutes = (app) => {
+  app.get("/api/receipt/download-receipt/:id", downloadTransactionReceipt);
 };
 // ============================================================================
 // ERROR HANDLER
