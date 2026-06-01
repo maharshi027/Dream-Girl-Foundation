@@ -53,7 +53,7 @@ export default function AdminLogin({ onLoginSuccess }) {
           <div className="login-logo-section">
             <div className="login-icon-circle">👧</div>
             <h1>Dream Girl Foundation</h1>
-            <p>Admin Portal</p>
+            <h3 className="login-subtitle">Admin Login</h3>
           </div>
 
           {/* Form Section */}
