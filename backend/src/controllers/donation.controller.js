@@ -197,8 +197,23 @@ export const verifyOnline = async (req, res) => {
 
 // Record cash donation
 export const recordCash = async (req, res) => {
-  const { name, email, phone, amount, address, panNo, donationDate } =
-    req.body || {};
+  const {
+    name,
+    email,
+    phone,
+    amount,
+    address,
+    panNo,
+    donationDate,
+    type,
+    gatewayName,
+    claimStatus,
+    user,
+    additionalInfo,
+    txnId,
+    orderId,
+    paymentStatus,
+  } = req.body || {};
 
   try {
     // Validate required fields
@@ -228,9 +243,9 @@ export const recordCash = async (req, res) => {
       });
     }
 
-    // Generate transaction ID
-    const transactionId =
-      "TXN" + Date.now() + Math.random().toString(36).substring(2, 11);
+    // Custom Transaction and Order ID if provided, otherwise generate them
+    const finalTxnId = txnId && txnId.trim() !== "" ? txnId.trim() : ("TXN" + Date.now() + Math.random().toString(36).substring(2, 11));
+    const finalOrderId = orderId && orderId.trim() !== "" ? orderId.trim() : ("L4C-" + Math.random().toString(36).substring(2, 11).toUpperCase());
 
     const donation = new Donation({
       donorName: name,
@@ -241,8 +256,14 @@ export const recordCash = async (req, res) => {
       panNo: panNo.toUpperCase(),
       donationDate: donationDate ? new Date(donationDate) : new Date(),
       paymentMode: "CASH",
-      paymentStatus: "SUCCESS",
-      transactionId: transactionId,
+      paymentStatus: paymentStatus || "SUCCESS",
+      transactionId: finalTxnId,
+      razorpayOrderId: finalOrderId,
+      type: type || "HEALTH CARE",
+      gatewayName: gatewayName || "CASH",
+      claimStatus: claimStatus || "PENDING",
+      user: user || "Admin",
+      additionalInfo: additionalInfo || "",
     });
 
     await donation.save();
@@ -251,7 +272,7 @@ export const recordCash = async (req, res) => {
       success: true,
       message: "Cash donation recorded successfully",
       donationId: donation._id,
-      transactionId: transactionId,
+      transactionId: finalTxnId,
     });
   } catch (error) {
     console.error("Record Cash Donation Error:", error);
@@ -288,6 +309,16 @@ export const updateRecord = async (req, res) => {
     amount,
     paymentMode,
     paymentStatus,
+    address,
+    panNo,
+    txnId,
+    user,
+    type,
+    gatewayName,
+    claimStatus,
+    orderId,
+    date,
+    additionalInfo,
   } = req.body || {};
 
   try {
@@ -314,6 +345,16 @@ export const updateRecord = async (req, res) => {
     }
     if (paymentMode) donation.paymentMode = paymentMode;
     if (paymentStatus) donation.paymentStatus = paymentStatus;
+    if (address) donation.donorAddress = address;
+    if (panNo) donation.panNo = panNo.toUpperCase();
+    if (txnId) donation.transactionId = txnId;
+    if (user) donation.user = user;
+    if (type) donation.type = type;
+    if (gatewayName) donation.gatewayName = gatewayName;
+    if (claimStatus !== undefined) donation.claimStatus = claimStatus;
+    if (orderId) donation.razorpayOrderId = orderId;
+    if (date) donation.donationDate = new Date(date);
+    if (additionalInfo !== undefined) donation.additionalInfo = additionalInfo;
 
     await donation.save();
 

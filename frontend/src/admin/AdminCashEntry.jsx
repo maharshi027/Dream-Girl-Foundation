@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import axios from "axios";
 
 export default function AdminCashEntry({ onRecordAdded }) {
+  const [searchMobile, setSearchMobile] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const [cashRecord, setCashRecord] = useState({
     name: "",
     email: "",
@@ -10,9 +14,15 @@ export default function AdminCashEntry({ onRecordAdded }) {
     panNo: "",
     amount: "",
     donationDate: new Date().toISOString().split("T")[0],
+    txnId: "",
+    user: "Admin",
+    type: "HEALTH CARE",
+    gatewayName: "CASH",
+    claimStatus: "PENDING",
+    paymentStatus: "SUCCESS",
+    orderId: "",
+    additionalInfo: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
 
   const validateForm = () => {
     const newErrors = {};
@@ -22,22 +32,54 @@ export default function AdminCashEntry({ onRecordAdded }) {
     if (!cashRecord.email.trim()) newErrors.email = "Email is required";
     if (!cashRecord.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
       newErrors.email = "Invalid email format";
-    if (!cashRecord.phone.trim()) newErrors.phone = "Phone number is required";
+    if (!cashRecord.phone.trim()) newErrors.phone = "Phone is required";
     if (!cashRecord.address.trim()) newErrors.address = "Address is required";
-    if (!cashRecord.panNo.trim()) newErrors.panNo = "PAN number is required";
+    if (!cashRecord.panNo.trim()) newErrors.panNo = "PAN is required";
     if (!panRegex.test(cashRecord.panNo.toUpperCase()))
       newErrors.panNo = "Invalid PAN format (e.g., ABCDE1234F)";
     if (!cashRecord.amount || parseFloat(cashRecord.amount) <= 0)
-      newErrors.amount = "Amount must be greater than 0";
+      newErrors.amount = "Amount must be > 0";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleManualSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+  const handleSearch = async () => {
+    if (!searchMobile.trim()) {
+      alert("Please enter a mobile number to search.");
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const { data } = await axios.get("/api/donations/all-records");
+      const matched = data.find(
+        (record) =>
+          record.donorPhone &&
+          record.donorPhone.replace(/\D/g, "").includes(searchMobile.replace(/\D/g, ""))
+      );
+      if (matched) {
+        setCashRecord((prev) => ({
+          ...prev,
+          name: matched.donorName,
+          email: matched.donorEmail,
+          phone: matched.donorPhone,
+          address: matched.donorAddress || matched.address || "",
+          panNo: matched.panNo || "",
+        }));
+        alert(`🔍 Found donor: ${matched.donorName}. Form details pre-filled.`);
+      } else {
+        alert("No donor record found with this mobile number.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to search donor database.");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
+  const saveRecord = async (keepValues = false) => {
+    if (!validateForm()) return false;
     setLoading(true);
     try {
       const { data } = await axios.post("/api/donations/record-cash", {
@@ -48,46 +90,73 @@ export default function AdminCashEntry({ onRecordAdded }) {
         panNo: cashRecord.panNo,
         amount: cashRecord.amount,
         donationDate: cashRecord.donationDate,
+        txnId: cashRecord.txnId,
+        user: cashRecord.user,
+        type: cashRecord.type,
+        gatewayName: cashRecord.gatewayName,
+        claimStatus: cashRecord.claimStatus,
+        paymentStatus: cashRecord.paymentStatus,
+        orderId: cashRecord.orderId,
+        additionalInfo: cashRecord.additionalInfo,
       });
 
       if (data.success) {
-        alert("✅ Cash Donation Recorded Successfully!");
-        // Clear form
-        setCashRecord({
-          name: "",
-          email: "",
-          phone: "",
-          address: "",
-          panNo: "",
-          amount: "",
-          donationDate: new Date().toISOString().split("T")[0],
-        });
-        setErrors({});
-        e.target.reset();
-
-        // Trigger list refresh in parent dashboard
+        alert("✅ Donation recorded successfully!");
+        
         if (onRecordAdded) {
           onRecordAdded();
         }
 
-        // Open both receipt and certificate
+        // Trigger PDF generation downloads
         window.open(
           `${import.meta.env.VITE_APP_URL}/api/receipt/download-receipt/${data.donationId}`,
-          "_blank",
+          "_blank"
         );
         setTimeout(() => {
           window.open(
             `${import.meta.env.VITE_APP_URL}/api/certificate/download-certificate/${data.donationId}`,
-            "_blank",
+            "_blank"
           );
-        }, 500);
+        }, 600);
+
+        if (!keepValues) {
+          // Clear form fully
+          setCashRecord({
+            name: "",
+            email: "",
+            phone: "",
+            address: "",
+            panNo: "",
+            amount: "",
+            donationDate: new Date().toISOString().split("T")[0],
+            txnId: "",
+            user: "Admin",
+            type: "HEALTH CARE",
+            gatewayName: "CASH",
+            claimStatus: "PENDING",
+            paymentStatus: "SUCCESS",
+            orderId: "",
+            additionalInfo: "",
+          });
+          setSearchMobile("");
+        } else {
+          // Keep structure, clear TXN ID/Order ID for new entry
+          setCashRecord((prev) => ({
+            ...prev,
+            txnId: "",
+            orderId: "",
+          }));
+        }
+        setErrors({});
+        return true;
       }
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Error saving cash entry to DB");
+      alert(err.response?.data?.message || "Failed to record donation record.");
     } finally {
       setLoading(false);
     }
+    return false;
   };
 
   const handleInputChange = (e) => {
@@ -99,173 +168,262 @@ export default function AdminCashEntry({ onRecordAdded }) {
   };
 
   return (
-    <div className="cms-cash-card fade-in">
-      <div className="cms-card-header">
-        <h3>💰 Record Cash Collection</h3>
-        <p>Log offline in-hand donations with complete donor details</p>
+    <div className="cms-cash-card compact-card fade-in">
+      {/* Top Search Block */}
+      <div className="compact-search-row">
+        <input
+          type="text"
+          className="form-input search-input"
+          placeholder="Enter mobile no"
+          value={searchMobile}
+          onChange={(e) => setSearchMobile(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={handleSearch}
+          disabled={searchLoading}
+          className="search-btn-red"
+        >
+          {searchLoading ? "..." : "🔍 Search"}
+        </button>
       </div>
 
-      <form onSubmit={handleManualSubmit} className="cms-form">
-        {/* DONOR INFORMATION SECTION */}
-        <div className="form-section">
-          <h4 className="section-title">👤 Donor Information</h4>
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label>
-                Full Name <span className="required">*</span>
-              </label>
-              <input
-                type="text"
-                className={`form-input ${errors.name ? "input-error" : ""}`}
-                placeholder="John Doe"
-                name="name"
-                value={cashRecord.name}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.name && <span className="error-text">{errors.name}</span>}
-            </div>
-
-            <div className="form-group">
-              <label>
-                Email Address <span className="required">*</span>
-              </label>
-              <input
-                type="email"
-                className={`form-input ${errors.email ? "input-error" : ""}`}
-                placeholder="john@example.com"
-                name="email"
-                value={cashRecord.email}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.email && (
-                <span className="error-text">{errors.email}</span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label>
-                Phone Number <span className="required">*</span>
-              </label>
-              <input
-                type="tel"
-                className={`form-input ${errors.phone ? "input-error" : ""}`}
-                placeholder="+91 XXXXX XXXXX"
-                name="phone"
-                value={cashRecord.phone}
-                onChange={handleInputChange}
-                required
-              />
-              {errors.phone && (
-                <span className="error-text">{errors.phone}</span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label>
-                PAN Number <span className="required">*</span>
-              </label>
-              <input
-                type="text"
-                className={`form-input ${errors.panNo ? "input-error" : ""}`}
-                placeholder="ABCDE1234F"
-                name="panNo"
-                value={cashRecord.panNo}
-                onChange={(e) =>
-                  handleInputChange({
-                    target: {
-                      name: "panNo",
-                      value: e.target.value.toUpperCase(),
-                    },
-                  })
-                }
-                required
-              />
-              {errors.panNo && (
-                <span className="error-text">{errors.panNo}</span>
-              )}
-            </div>
+      {/* Grid Layout form */}
+      <form onSubmit={(e) => { e.preventDefault(); saveRecord(false); }} className="compact-form">
+        <div className="compact-grid">
+          {/* Row 1 */}
+          <div className="form-group">
+            <label>Full Name <span className="required">*</span></label>
+            <input
+              type="text"
+              name="name"
+              className={`form-input compact-input ${errors.name ? "input-error" : ""}`}
+              placeholder="Full Name"
+              value={cashRecord.name}
+              onChange={handleInputChange}
+            />
+            {errors.name && <span className="error-text">{errors.name}</span>}
+          </div>
+          <div className="form-group">
+            <label>Address <span className="required">*</span></label>
+            <input
+              type="text"
+              name="address"
+              className={`form-input compact-input ${errors.address ? "input-error" : ""}`}
+              placeholder="Address"
+              value={cashRecord.address}
+              onChange={handleInputChange}
+            />
+            {errors.address && <span className="error-text">{errors.address}</span>}
           </div>
 
+          {/* Row 2 */}
           <div className="form-group">
-            <label>
-              Address <span className="required">*</span>
-            </label>
-            <textarea
-              className={`form-input form-textarea ${
-                errors.address ? "input-error" : ""
-              }`}
-              placeholder="Enter complete address"
-              name="address"
-              rows="3"
-              value={cashRecord.address}
+            <label>Amount <span className="required">*</span></label>
+            <input
+              type="number"
+              name="amount"
+              className={`form-input compact-input ${errors.amount ? "input-error" : ""}`}
+              placeholder="Amount"
+              value={cashRecord.amount}
+              onChange={handleInputChange}
+            />
+            {errors.amount && <span className="error-text">{errors.amount}</span>}
+          </div>
+          <div className="form-group">
+            <label>Mobile Number <span className="required">*</span></label>
+            <input
+              type="text"
+              name="phone"
+              className={`form-input compact-input ${errors.phone ? "input-error" : ""}`}
+              placeholder="Mobile Number"
+              value={cashRecord.phone}
+              onChange={handleInputChange}
+            />
+            {errors.phone && <span className="error-text">{errors.phone}</span>}
+          </div>
+
+          {/* Row 3 */}
+          <div className="form-group">
+            <label>Email Id <span className="required">*</span></label>
+            <input
+              type="email"
+              name="email"
+              className={`form-input compact-input ${errors.email ? "input-error" : ""}`}
+              placeholder="Email Id"
+              value={cashRecord.email}
+              onChange={handleInputChange}
+            />
+            {errors.email && <span className="error-text">{errors.email}</span>}
+          </div>
+          <div className="form-group">
+            <label>Pan No. <span className="required">*</span></label>
+            <input
+              type="text"
+              name="panNo"
+              className={`form-input compact-input ${errors.panNo ? "input-error" : ""}`}
+              placeholder="Enter Your Pan No."
+              value={cashRecord.panNo}
+              onChange={(e) =>
+                handleInputChange({
+                  target: {
+                    name: "panNo",
+                    value: e.target.value.toUpperCase(),
+                  },
+                })
+              }
+            />
+            {errors.panNo && <span className="error-text">{errors.panNo}</span>}
+          </div>
+
+          {/* Row 4 */}
+          <div className="form-group">
+            <label>TXN ID</label>
+            <input
+              type="text"
+              name="txnId"
+              className="form-input compact-input"
+              placeholder="Transaction ID (Auto-generated if empty)"
+              value={cashRecord.txnId}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div className="form-group">
+            <label>User</label>
+            <select
+              name="user"
+              className="form-input compact-input select-input"
+              value={cashRecord.user}
+              onChange={handleInputChange}
+            >
+              <option value="Admin">Admin</option>
+              <option value="Staff">Staff</option>
+              <option value="Volunteer">Volunteer</option>
+            </select>
+          </div>
+
+          {/* Row 5 */}
+          <div className="form-group">
+            <label>Type</label>
+            <select
+              name="type"
+              className="form-input compact-input select-input"
+              value={cashRecord.type}
+              onChange={handleInputChange}
+            >
+              <option value="HEALTH CARE">HEALTH CARE</option>
+              <option value="EDUCATION">EDUCATION</option>
+              <option value="NUTRITION">NUTRITION</option>
+              <option value="GENERAL">GENERAL</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Gateway Name</label>
+            <select
+              name="gatewayName"
+              className="form-input compact-input select-input"
+              value={cashRecord.gatewayName}
+              onChange={handleInputChange}
+            >
+              <option value="CASH">CASH</option>
+              <option value="GOOGLE PAY">GOOGLE PAY</option>
+              <option value="PHONEPE">PHONEPE</option>
+              <option value="PAYTM">PAYTM</option>
+              <option value="NEFT/IMPS">NEFT/IMPS</option>
+              <option value="RAZORPAY">RAZORPAY</option>
+            </select>
+          </div>
+
+          {/* Row 6 */}
+          <div className="form-group">
+            <label>Claim Status</label>
+            <select
+              name="claimStatus"
+              className="form-input compact-input select-input"
+              value={cashRecord.claimStatus}
+              onChange={handleInputChange}
+            >
+              <option value="PENDING">PENDING</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Payment Status</label>
+            <select
+              name="paymentStatus"
+              className="form-input compact-input select-input"
+              value={cashRecord.paymentStatus}
+              onChange={handleInputChange}
+            >
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="PENDING">PENDING</option>
+              <option value="FAILED">FAILED</option>
+            </select>
+          </div>
+
+          {/* Row 7 */}
+          <div className="form-group">
+            <label>Order ID</label>
+            <input
+              type="text"
+              name="orderId"
+              className="form-input compact-input"
+              placeholder="Order ID (Auto-generated if empty)"
+              value={cashRecord.orderId}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div className="form-group">
+            <label>Date</label>
+            <input
+              type="date"
+              name="donationDate"
+              className="form-input compact-input"
+              value={cashRecord.donationDate}
               onChange={handleInputChange}
               required
             />
-            {errors.address && (
-              <span className="error-text">{errors.address}</span>
-            )}
           </div>
         </div>
 
-        {/* PAYMENT INFORMATION SECTION */}
-        <div className="form-section">
-          <h4 className="section-title">💵 Payment Information</h4>
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label>
-                Donation Amount (INR) <span className="required">*</span>
-              </label>
-              <input
-                type="number"
-                className={`form-input ${errors.amount ? "input-error" : ""}`}
-                placeholder="e.g. 5000"
-                name="amount"
-                value={cashRecord.amount}
-                onChange={handleInputChange}
-                required
-                min="1"
-                step="0.01"
-              />
-              {errors.amount && (
-                <span className="error-text">{errors.amount}</span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label>
-                Date <span className="required">*</span>
-              </label>
-              <input
-                type="date"
-                className="form-input"
-                name="donationDate"
-                value={cashRecord.donationDate}
-                onChange={handleInputChange}
-                required
-              />
-              <small className="helper-text">
-                Auto-filled with current date
-              </small>
-            </div>
-          </div>
+        {/* Row 8 */}
+        <div className="form-group full-width">
+          <label>Additional Information</label>
+          <textarea
+            name="additionalInfo"
+            className="form-input compact-textarea"
+            rows="2"
+            placeholder="Additional Information"
+            value={cashRecord.additionalInfo}
+            onChange={handleInputChange}
+          />
         </div>
 
-        {/* ACTION BUTTONS */}
-        <div className="form-actions">
+        {/* Color-coded Action Buttons */}
+        <div className="compact-actions">
           <button
             type="submit"
-            className="btn btn-save-cash"
             disabled={loading}
+            className="action-btn-red submit-btn"
           >
-            {loading ? (
-              <>
-                <span className="spinner"></span> Processing...
-              </>
-            ) : (
-              "Submit"
-            )}
+            {loading ? "..." : "✓ Save"}
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => saveRecord(false)}
+            className="action-btn-blue submit-btn"
+          >
+            {loading ? "..." : "✓ Save & Next"}
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => saveRecord(true)}
+            className="action-btn-green submit-btn"
+          >
+            {loading ? "..." : "✓ Save & Copy"}
           </button>
         </div>
       </form>

@@ -66,6 +66,26 @@ const donationSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    type: {
+      type: String,
+      default: "HEALTH CARE",
+    },
+    gatewayName: {
+      type: String,
+      default: "CASH",
+    },
+    claimStatus: {
+      type: String,
+      default: "PENDING",
+    },
+    user: {
+      type: String,
+      default: "Admin",
+    },
+    additionalInfo: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

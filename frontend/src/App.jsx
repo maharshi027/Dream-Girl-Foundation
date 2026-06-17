@@ -438,7 +438,7 @@ function App() {
         )}
       </main>
 
-      {!window?.location?.pathname?.includes("/admin") && (
+      {activeTab !== "admin" && !window?.location?.pathname?.includes("/admin") && (
         <Footer onNav={(tab) => setActiveTab(tab)} />
       )}
     </div>

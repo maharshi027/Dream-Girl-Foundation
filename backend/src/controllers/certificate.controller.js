@@ -186,18 +186,20 @@ export const downloadCertificate = async (req, res) => {
     doc.y = lineY2 + 55;
     doc.font("Times-Italic");
     doc.text("For account of ", 80, lineY2 + 55, { continued: true });
-    doc.font("Times-Bold").text("  HEALTH CARE  ", { underline: true, continued: true });
+    
+    const accountType = (donation.type || "HEALTH CARE").toUpperCase();
+    doc.font("Times-Bold").text(`  ${accountType}  `, { underline: true, continued: true });
     doc.font("Times-Italic").text(" donated via ", { underline: false, continued: true });
     
-    const paymentModeLabel = donation.paymentMode === "CASH" ? "CASH" : "NEFT/IMPS";
+    const paymentModeLabel = donation.paymentMode === "CASH" ? (donation.gatewayName || "CASH").toUpperCase() : "NEFT/IMPS";
     doc.font("Times-Bold").text(`  ${paymentModeLabel}  `, { underline: true, continued: true });
     
     doc.font("Times-Italic").text(" having reference no. ", { underline: false, continued: true });
-    const refNo = donation.paymentMode === "ONLINE" ? (donation.razorpayPaymentId || donation.transactionId) : "--NA--";
+    const refNo = donation.transactionId || donation.razorpayPaymentId || "--NA--";
     doc.font("Times-Bold").text(`  ${refNo}  `, { underline: true, continued: true });
     
     doc.font("Times-Italic").text(" drawn ", { underline: false, continued: true });
-    const drawnSource = donation.paymentMode === "ONLINE" ? "GOOGLE PAY" : "OFFICE CASH";
+    const drawnSource = (donation.gatewayName || (donation.paymentMode === "ONLINE" ? "GOOGLE PAY" : "OFFICE")).toUpperCase();
     doc.font("Times-Bold").text(`  ${drawnSource}  `, { underline: true, continued: true });
     
     doc.font("Times-Italic").text(" dated ", { underline: false, continued: true });
