@@ -136,7 +136,7 @@ npm run dev
 # Production mode
 npm start
 
-# Server will run on http://localhost:5000
+# Server will run on http://localhost:XXXX
 ```
 
 ### Frontend Application
@@ -307,15 +307,15 @@ npm run lint     # Run ESLint
 
 **Cannot login / "Invalid credentials" error**:
 
-- Verify admin password in `.env` file: `ADMIN_PASSWORD=&Harsh@2511`
-- Check backend server is running on port 5000
+- Verify admin password in `.env`
+- Check backend server is running on port XXXX
 - Verify request is going to `/api/auth/login` endpoint
 
 **401 Unauthorized on API calls**:
 
 - Check if access token exists: Open browser DevTools → Application → localStorage
-- Verify token is in valid JWT format (starts with `eyJ`)
-- If expired (after 15m), refresh token should auto-refresh
+- Verify token is in valid JWT format
+- If expired , refresh token should auto-refresh
 - Check JWT secrets are configured in `.env`
 
 **Token refresh not working**:
@@ -328,7 +328,7 @@ npm run lint     # Run ESLint
 **ECONNREFUSED error**:
 
 - Ensure backend is running: `npm run dev` in backend folder
-- Verify backend is on port 5000 (check `.env` PORT setting)
+- Verify backend is on port XXXX (check `.env` PORT setting)
 - Check Vite proxy config in `frontend/vite.config.js`
 
 ### MongoDB Connection Issues
@@ -339,14 +339,8 @@ npm run lint     # Run ESLint
 
 ### Port Already in Use
 
-- Backend default: 5000 - Change `PORT` in `.env`
-- Frontend default: 5173 - Vite will use next available port
-
-### Razorpay Not Working
-
-- Verify `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are correct
-- Check Razorpay account is activated
-- Use simulation mode if keys are missing
+- Backend default: XXXX - Change `PORT` in `.env`
+- Frontend default: XXXX - Vite will use next available port
 
 ## 📚 Additional Resources
 
