@@ -69,17 +69,8 @@ export const downloadTransactionReceipt = async (req, res) => {
     const logoX = (width - logoWidth) / 2;
     doc.image(logoPath, logoX, 30, { width: logoWidth, height: logoHeight });
 
-    // Organization Address and Contact details below the logo image
-    doc.y = 98;
-    doc
-      .font("Times-Roman")
-      .fontSize(8)
-      .fillColor("#4B5563")
-      .text("Regd. Office: Room No.1, Opp. Sarpanch Anant House, Tigra Village, Sec-57, Gurgaon", { align: "center", lineGap: 1.5 })
-      .text("Phone: +91 98998 18585  |  Email: info@look4child.ngo  |  Web: www.look4child.ngo", { align: "center" });
-
-    // Crimson colored line separator under the letterhead details
-    const lineY = 126;
+    // Crimson colored line separator under the logo
+    const lineY = 105;
     doc
       .lineWidth(1.5)
       .strokeColor("#B91C1C")
@@ -119,7 +110,7 @@ export const downloadTransactionReceipt = async (req, res) => {
     
     doc.moveDown(0.5);
     doc.text(
-      "We at Look For Child Foundation show our absolute gratitude towards the donation made by you for saving a life of a child. Efforts made by you and us will surely bring bright change in one's life.",
+      "We at Look4Child Foundation show our absolute gratitude towards the donation made by you for saving a life of a child. Efforts made by you and us will surely bring bright change in one's life.",
       { lineGap: 3, width: contentWidth }
     );
     
@@ -251,7 +242,7 @@ export const downloadTransactionReceipt = async (req, res) => {
       .font("Times-Bold")
       .fontSize(9.5);
 
-    doc.text("For: Look For Child Foundation.", pageMargin, currentY + 10, { continued: true });
+    doc.text("For: Look4Child Foundation.", pageMargin, currentY + 10, { continued: true });
     doc.text("PAN: AAAAL4939Q", { align: "right" });
 
     // --- DOWNLOAD CERTIFICATE LINK ---
@@ -269,6 +260,24 @@ export const downloadTransactionReceipt = async (req, res) => {
       underline: true,
       link: certificateUrl,
     });
+
+    // --- FOOTER ADDRESS BLOCK ---
+    const footerY = doc.page.height - 65;
+
+    // Draw thin separator line for footer
+    doc
+      .lineWidth(0.5)
+      .strokeColor("#D1D5DB")
+      .moveTo(pageMargin, footerY - 10)
+      .lineTo(width - pageMargin, footerY - 10)
+      .stroke();
+
+    doc
+      .font("Times-Roman")
+      .fontSize(8)
+      .fillColor("#4B5563")
+      .text("Regd. Office: Room No.1, Opp. Sarpanch Anant House, Tigra Village, Sec-57, Gurgaon", pageMargin, footerY, { align: "center", lineGap: 1.5, width: contentWidth })
+      .text("Phone: +91 98998 18585  |  Email: info@look4child.ngo  |  Web: www.look4child.ngo", { align: "center", width: contentWidth });
 
     // End Document stream
     doc.end();
