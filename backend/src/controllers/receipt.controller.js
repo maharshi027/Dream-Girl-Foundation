@@ -358,6 +358,7 @@ export const sendHtmlReceiptEmailInternal = async (donation) => {
 
   const paymentMode = (donation.gatewayName || donation.paymentMode || "CASH").toUpperCase();
   const transporter = createTransporter();
+  const backendUrl = process.env.BACKEND_URL || "https://dream-girl-foundation.onrender.com";
 
   const htmlContent = `
 <div style="font-family: 'Times New Roman', Times, serif; color: #333333; margin: 0; padding: 20px; background-color: #f9f9f9;">
@@ -399,6 +400,15 @@ export const sendHtmlReceiptEmailInternal = async (donation) => {
               <p>This is to inform you that your donation has been successfully received.</p>
               <p>We at Look4Child Foundation show our absolute gratitude towards the donation made by you for saving the life of a child. Efforts made by you and us will surely bring bright change in one's life.</p>
               <p>Thanks for being a part of our project JEEVAN. Indeed it feels great to be a reason for others smiles.</p>
+              
+              <!-- Download Certificate Button Link -->
+              <div style="text-align: center; margin: 25px 0;">
+                <a href="${backendUrl}/api/certificate/download-certificate/${donation._id}" 
+                   style="background-color: #b91c1c; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; font-family: Arial, sans-serif; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  📥 Download Donation Certificate
+                </a>
+              </div>
+
               <p>With Warm Regards,<br><strong>Team Look For Child Foundation.</strong></p>
             </td>
           </tr>
