@@ -66,7 +66,7 @@ export const downloadCertificate = async (req, res) => {
     doc.text(serialNumber, 60, 52);
 
     // --- DONOR NAME ---
-    doc.y = 280;
+    doc.y = 250;
     doc.font("Times-Bold")
        .fontSize(32)
        .fillColor("#000000") // black colour
