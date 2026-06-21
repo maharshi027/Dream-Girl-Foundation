@@ -239,3 +239,16 @@ export const sendOnlineDonationEmail = async (donation, backendUrl) => {
   const subject = `Donation Certificate & Receipt - Look For Child Foundation`;
   return sendMailWithCertificate(donation, backendUrl, subject);
 };
+
+import { Resend } from "resend";
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export const sendOfflineDonationEmail = async (donation, backendUrl) => {
+  return resend.emails.send({
+    from: "Look For Child Foundation <noreply@look4child.ngo>",
+    to: donation.donorEmail,
+    subject: "Donation Certificate & Receipt - Look For Child Foundation",
+    html: buildEmailHtml(...),   // your existing function
+    attachments: [{ filename: "certificate.pdf", content: certBuffer }],
+  });
+};
