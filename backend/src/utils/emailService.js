@@ -197,7 +197,7 @@ const sendMailWithCertificate = async (donation, backendUrl, subject) => {
     certificateAttachment = {
       filename: `Donation_Certificate_${cleanDonorName}.pdf`,
       content: certBuffer,
-      contentType: "application/pdf"
+      contentType: "application/pdf",
     };
   } catch (certErr) {
     console.error("Failed to generate Certificate attachment for email:", certErr);
