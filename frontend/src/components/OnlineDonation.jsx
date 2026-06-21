@@ -160,6 +160,11 @@ export default function OnlineDonation() {
               contact: formData.phone,
             },
             theme: { color: "#2563EB" }, // Unified deep blue theme
+            modal: {
+              ondismiss: function() {
+                setLoading(false);
+              }
+            }
           };
 
           const rzp = new window.Razorpay(options);
@@ -172,9 +177,9 @@ export default function OnlineDonation() {
         error.response?.data?.message ||
           "Failed to initiate payment gateway connection.",
       );
-    } finally {
       setLoading(false);
     }
+    // Removed finally block to prevent button resetting before Razorpay UI opens
   };
 
   // Simulated validation loop
@@ -511,6 +516,7 @@ export default function OnlineDonation() {
               <input
                 id="donor-phone"
                 type="tel"
+                maxLength={10}
                 className={`form-input form-input-with-icon ${errors.phone ? "input-error" : ""}`}
                 placeholder="+91 XXXXX XXXXX"
                 name="phone"

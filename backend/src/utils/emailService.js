@@ -1,45 +1,28 @@
-import nodemailer from "nodemailer";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 import { getReceiptSerialNumber, getReceiptDateStr, getTableDateStr } from "../controllers/receipt.controller.js";
 import { generateCertificatePDFBuffer } from "../controllers/certificate.controller.js";
+import { Resend } from "resend";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const logoPath = path.join(__dirname, "../assets/logo.png");
 
-// Globally cached SMTP transporter using connection pooling to reduce handshake latency
-let cachedTransporter = null;
+// Preload and convert logo to Base64 Data URI for embedding in HTML directly (avoids CID attachment issues)
+const logoBase64 = fs.readFileSync(logoPath).toString("base64");
+const logoDataUri = `data:image/png;base64,${logoBase64}`;
 
-const getTransporter = () => {
-  if (!cachedTransporter) {
-    const host = process.env.SMTP_HOST || "smtp.gmail.com";
-    const port = parseInt(process.env.SMTP_PORT || "587");
-    const user = process.env.SMTP_USER || process.env.ADMIN_EMAIL;
-    const pass = process.env.SMTP_PASS || process.env.ADMIN_PASSWORD;
-
-    const isSecure = port === 465 || process.env.SMTP_SECURE === "true";
-
-    cachedTransporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: isSecure,
-      family: 4, // Force IPv4 to bypass Render's unsupported IPv6 network routing
-      pool: true, // Use connection pool
-      maxConnections: 5,
-      maxMessages: 100,
-      auth: {
-        user,
-        pass,
-      },
-      connectionTimeout: 10000, // 10 seconds timeout for establishing TCP connection
-      socketTimeout: 10000,     // 10 seconds idle timeout for socket
-      greetingTimeout: 10000,   // 10 seconds timeout for greeting response
-    });
+let resendInstance = null;
+const getResend = () => {
+  if (!resendInstance) {
+    if (!process.env.RESEND_API_KEY) {
+      console.warn("WARNING: RESEND_API_KEY is not set in environment variables!");
+    }
+    resendInstance = new Resend(process.env.RESEND_API_KEY);
   }
-  return cachedTransporter;
+  return resendInstance;
 };
-
 
 const buildEmailHtml = (donation, donationNumber, receiptDateStr, tableDateStr, donationStatus, paymentMode, backendUrl) => {
   return `
@@ -51,7 +34,7 @@ const buildEmailHtml = (donation, donationNumber, receiptDateStr, tableDateStr, 
           <!-- Logo & Header -->
           <tr>
             <td align="center" style="padding-bottom: 15px;">
-              <img src="cid:logo" alt="Look For Child Foundation Logo" style="width: 100px; height: auto; margin-bottom: 15px; display: block;" />
+              <img src="${logoDataUri}" alt="Look For Child Foundation Logo" style="width: 100px; height: auto; margin-bottom: 15px; display: block;" />
               <h2 style="color: #b91c1c; margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;">Look For Child Foundation</h2>
             </td>
           </tr>
@@ -178,7 +161,7 @@ const buildEmailHtml = (donation, donationNumber, receiptDateStr, tableDateStr, 
 };
 
 /**
- * Common implementation to build attachment and send mail.
+ * Common implementation to build attachment and send mail using Resend.
  */
 const sendMailWithCertificate = async (donation, backendUrl, subject) => {
   const serialNumber = await getReceiptSerialNumber(donation);
@@ -187,41 +170,33 @@ const sendMailWithCertificate = async (donation, backendUrl, subject) => {
   const donationStatus = donation.paymentStatus === "SUCCESS" ? "Paid" : donation.paymentStatus;
   const paymentMode = (donation.gatewayName || donation.paymentMode || "CASH").toUpperCase();
 
-  const transporter = getTransporter();
   const htmlContent = buildEmailHtml(donation, serialNumber, receiptDateStr, tableDateStr, donationStatus, paymentMode, backendUrl);
 
-  let certificateAttachment;
+  const attachments = [];
   try {
     const certBuffer = await generateCertificatePDFBuffer(donation);
     const cleanDonorName = donation.donorName.replace(/[^a-zA-Z0-9]/g, "_");
-    certificateAttachment = {
+    attachments.push({
       filename: `Donation_Certificate_${cleanDonorName}.pdf`,
       content: certBuffer,
-      contentType: "application/pdf",
-    };
+    });
   } catch (certErr) {
     console.error("Failed to generate Certificate attachment for email:", certErr);
   }
 
-  const mailOptions = {
-    from: `Look For Child Foundation <${process.env.SMTP_USER || process.env.ADMIN_EMAIL}>`,
+  const response = await getResend().emails.send({
+    from: "Look For Child Foundation <noreply@look4child.ngo>", // RESTORED FOR PRODUCTION
     to: donation.donorEmail,
     subject: subject,
     html: htmlContent,
-    attachments: [
-      {
-        filename: "logo.png",
-        path: logoPath,
-        cid: "logo",
-      },
-    ],
-  };
+    attachments: attachments.length > 0 ? attachments : undefined,
+  });
 
-  if (certificateAttachment) {
-    mailOptions.attachments.push(certificateAttachment);
+  if (response.error) {
+    throw new Error(response.error.message);
   }
 
-  return transporter.sendMail(mailOptions);
+  return response.data;
 };
 
 /**
@@ -238,17 +213,4 @@ export const sendOfflineDonationEmail = async (donation, backendUrl) => {
 export const sendOnlineDonationEmail = async (donation, backendUrl) => {
   const subject = `Donation Certificate & Receipt - Look For Child Foundation`;
   return sendMailWithCertificate(donation, backendUrl, subject);
-};
-
-import { Resend } from "resend";
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-export const sendOfflineDonationEmail = async (donation, backendUrl) => {
-  return resend.emails.send({
-    from: "Look For Child Foundation <noreply@look4child.ngo>",
-    to: donation.donorEmail,
-    subject: "Donation Certificate & Receipt - Look For Child Foundation",
-    html: buildEmailHtml(...),   // your existing function
-    attachments: [{ filename: "certificate.pdf", content: certBuffer }],
-  });
 };

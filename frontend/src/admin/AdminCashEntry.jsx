@@ -158,7 +158,9 @@ export default function AdminCashEntry({ onRecordAdded }) {
             </button>
             <button
               type="button"
+              disabled={loading || cashRecord.sendingEmail}
               onClick={async () => {
+                setCashRecord(prev => ({ ...prev, sendingEmail: true }));
                 try {
                   const { data } = await axios.post(`/api/receipt/email-receipt/${lastSaved.id}`);
                   if (data.success) {
@@ -169,12 +171,30 @@ export default function AdminCashEntry({ onRecordAdded }) {
                   const errMsg = err.response?.data?.message || "Failed to send email.";
                   const errDetails = err.response?.data?.error ? `\nDetails: ${err.response.data.error}` : "";
                   alert(`${errMsg}${errDetails}`);
+                } finally {
+                  setCashRecord(prev => ({ ...prev, sendingEmail: false }));
                 }
               }}
               className="action-btn-green"
-              style={{ fontSize: "0.85rem", padding: "6px 12px", borderRadius: "4px", cursor: "pointer", border: "none" }}
+              style={{
+                fontSize: "0.85rem",
+                padding: "6px 12px",
+                borderRadius: "4px",
+                cursor: (loading || cashRecord.sendingEmail) ? "wait" : "pointer",
+                border: "none",
+                opacity: (loading || cashRecord.sendingEmail) ? 0.7 : 1,
+                transition: "all 0.3s ease",
+                backgroundColor: "#166534",
+                color: "white"
+              }}
+              onMouseEnter={(e) => {
+                if (!loading && !cashRecord.sendingEmail) e.target.style.backgroundColor = "#14532d";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#166534";
+              }}
             >
-              Send Email
+              {cashRecord.sendingEmail ? "Sending..." : "Send Email"}
             </button>
             <button
               type="button"
@@ -239,13 +259,17 @@ export default function AdminCashEntry({ onRecordAdded }) {
           <div className="form-group">
             <label>Mobile Number <span className="required">*</span></label>
             <input
-              type="number"
+              type="tel"
               name="phone"
-              maxlength="10"
+              maxLength="10"
+              pattern="[0-9]*"
               className={`form-input compact-input ${errors.phone ? "input-error" : ""}`}
               placeholder="Mobile Number"
               value={cashRecord.phone}
-              onChange={handleInputChange}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                handleInputChange({ target: { name: "phone", value: val } });
+              }}
             />
             {errors.phone && <span className="error-text">{errors.phone}</span>}
           </div>

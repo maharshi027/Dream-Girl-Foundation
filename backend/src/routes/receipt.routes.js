@@ -1,6 +1,5 @@
 import express from "express";
-import { downloadTransactionReceipt, getReceiptDetails } from "../controllers/receipt.controller.js";
-import { emailReceipt } from "../controllers/donation.controller.js";
+import { downloadTransactionReceipt, getReceiptDetails, emailTransactionReceipt } from "../controllers/receipt.controller.js";
 
 const router = express.Router();
 
@@ -11,6 +10,6 @@ router.get("/download-receipt/:id", downloadTransactionReceipt);
 router.get("/receipt-details/:id", getReceiptDetails);
 
 // Missing: Called by AdminCashEntry.jsx "Send Email" button
-router.post("/email-receipt/:id", emailReceipt);
+router.post("/email-receipt/:id", emailTransactionReceipt);
 
 export default router;
