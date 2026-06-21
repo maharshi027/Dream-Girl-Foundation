@@ -37,7 +37,7 @@ export const generateCertificatePDF = async (doc, donation) => {
     .font("Times-Bold")
     .fontSize(30)
     .fillColor("#000000")
-    .text(donation.donorName.toUpperCase(), 0, 242, {
+    .text(donation.donorName.toUpperCase(), 0, 252, {
       width: W,
       align: "center",
       lineBreak: false,
@@ -64,7 +64,7 @@ export const generateCertificatePDF = async (doc, donation) => {
   doc.text(paymentModeLabel, 512, 349, { lineBreak: false });
 
   // Row 3 — "no. ___ drawn ___ dated ___"
-  doc.text(serialNumber, 188, 380, { lineBreak: false });
+  doc.text(serialNumber, 155, 380, { lineBreak: false });
 
   const drawnSource = (
     donation.gatewayName ||
