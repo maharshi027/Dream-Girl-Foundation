@@ -228,6 +228,7 @@ export default function AdminCashEntry({ onRecordAdded }) {
             <input
               type="number"
               name="amount"
+              maxlength="10"
               className={`form-input compact-input ${errors.amount ? "input-error" : ""}`}
               placeholder="Amount"
               value={cashRecord.amount}
