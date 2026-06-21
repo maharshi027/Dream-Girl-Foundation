@@ -8,7 +8,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const certificateBgPath = path.join(__dirname, "../assets/certificate.jpeg");
 
-
 const getTableDateStr = (date) => {
   const d = new Date(date);
   const day = String(d.getDate()).padStart(2, "0");
@@ -18,57 +17,76 @@ const getTableDateStr = (date) => {
 };
 
 export const generateCertificatePDF = async (doc, donation) => {
-  const width = doc.page.width;
-  const height = doc.page.height;
+  const W = doc.page.width;   // 841.89 pt
+  const H = doc.page.height;  // 595.28 pt
 
-  // --- DRAW BACKGROUND IMAGE ---
-  doc.image(certificateBgPath, 0, 0, { width, height });
+  // ── Background ────────────────────────────────────────────
+  doc.image(certificateBgPath, 0, 0, { width: W, height: H });
 
-  // --- TOP REFERENCE NUMBER ---
+  // ── Serial number — top left ──────────────────────────────
   const serialNumber = await getReceiptSerialNumber(donation);
-  doc.font("Times-Roman").fontSize(9.5).fillColor("#000000");
-  doc.text(serialNumber, 60, 52);
+  doc
+    .font("Times-Roman")
+    .fontSize(10)
+    .fillColor("#000000")
+    .text(serialNumber, 52, 50, { lineBreak: false });
 
-  // --- DONOR NAME ---
-  doc.y = 250;
-  doc.font("Times-Bold")
-     .fontSize(32)
-     .fillColor("#000000") // black colour
-     .text(donation.donorName.toUpperCase(), { align: "center" });
+  // ── Donor name — centered between the two decorative lines ─
+  // Uses absolute Y so it never shifts when other font sizes change
+  doc
+    .font("Times-Bold")
+    .fontSize(30)
+    .fillColor("#000000")
+    .text(donation.donorName.toUpperCase(), 0, 242, {
+      width: W,
+      align: "center",
+      lineBreak: false,
+    });
 
-  // --- DETAILS INPUT OVERLAYS ---
-  doc.fillColor("#000000").font("Times-Bold").fontSize(11);
-  
-  // Donated Rs. Value (Line 3, Y = 315, X = 260)
-  doc.text(`${donation.amount}/-`, 260, 315, { width: 200, align: "left" });
-  // PAN No Value (Line 3, Y = 315, X = 560)
-  doc.text(donation.panNo || "N/A", 560, 315, { width: 250, align: "left" });
+  // ── All detail fields at font size 14 ─────────────────────
+  // Every field uses an explicit x,y so nothing flows or shifts.
+  doc.font("Times-Bold").fontSize(14).fillColor("#000000");
 
-  // Line 4: For account of ___________ donated via __________ having reference no. __________
+  // Row 1 — "Donated Rs. ___  PAN No. ___"
+  // Amount value (after the printed "Donated Rs." label)
+  doc.text(`${donation.amount}/-`, 255, 318, { lineBreak: false });
+  // PAN value (after the printed "PAN No." label)
+  doc.text(donation.panNo || "N/A", 560, 318, { lineBreak: false });
+
+  // Row 2 — "For account of ___ donated via ___ having reference"
   const accountType = (donation.type || "HEALTH CARE").toUpperCase();
-  doc.text(accountType, 250, 345, { width: 200, align: "left" });
-  
-  const paymentModeLabel = donation.paymentMode === "CASH" ? (donation.gatewayName || "CASH").toUpperCase() : "NEFT/IMPS";
-  doc.text(paymentModeLabel, 510, 345, { width: 200, align: "left" });
-  
-  // Line 5: no. _______________ drawn _______________ dated _______________
-  // Use sequential serialNumber instead of random transaction ID
-  const refNo = serialNumber;
-  doc.text(refNo, 190, 375, { width: 200, align: "left" });
-  
-  const drawnSource = (donation.gatewayName || (donation.paymentMode === "ONLINE" ? "GOOGLE PAY" : "OFFICE")).toUpperCase();
-  doc.text(drawnSource, 380, 375, { width: 200, align: "left" });
-  
-  doc.text(getTableDateStr(donation.donationDate), 520, 375, { width: 200, align: "left" });
+  doc.text(accountType, 250, 349, { lineBreak: false });
+
+  const paymentModeLabel =
+    donation.paymentMode === "CASH"
+      ? (donation.gatewayName || "CASH").toUpperCase()
+      : (donation.gatewayName || "NEFT/IMPS").toUpperCase();
+  doc.text(paymentModeLabel, 512, 349, { lineBreak: false });
+
+  // Row 3 — "no. ___ drawn ___ dated ___"
+  doc.text(serialNumber, 188, 380, { lineBreak: false });
+
+  const drawnSource = (
+    donation.gatewayName ||
+    (donation.paymentMode === "ONLINE" ? "GOOGLE PAY" : "OFFICE")
+  ).toUpperCase();
+  doc.text(drawnSource, 382, 380, { lineBreak: false });
+
+  doc.text(getTableDateStr(donation.donationDate), 530, 380, {
+    lineBreak: false,
+  });
 };
 
+// ─────────────────────────────────────────────────────────────
+// Buffer version — used by email attachment generator
+// ─────────────────────────────────────────────────────────────
 export const generateCertificatePDFBuffer = async (donation) => {
   return new Promise(async (resolve, reject) => {
     try {
       const doc = new PDFDocument({
         size: "A4",
         layout: "landscape",
-        margins: { top: 40, bottom: 40, left: 40, right: 40 },
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
       });
 
       const buffers = [];
@@ -84,16 +102,18 @@ export const generateCertificatePDFBuffer = async (donation) => {
   });
 };
 
+// ─────────────────────────────────────────────────────────────
+// Download endpoint — streams PDF directly to browser
+// ─────────────────────────────────────────────────────────────
 export const downloadCertificate = async (req, res) => {
   const { id } = req.params;
 
   try {
     const donation = await Donation.findById(id);
     if (!donation) {
-      return res.status(404).json({
-        success: false,
-        message: "Donation not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Donation not found" });
     }
 
     if (donation.paymentStatus !== "SUCCESS") {
@@ -104,27 +124,21 @@ export const downloadCertificate = async (req, res) => {
     }
 
     const cleanDonorName = donation.donorName.replace(/[^a-zA-Z0-9]/g, "_");
-    // Set response headers to force download as a PDF
+
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="Donation Certificate_${cleanDonorName}.pdf"`,
+      `attachment; filename="Donation_Certificate_${cleanDonorName}.pdf"`
     );
 
-    // Create a landscape A4 PDF document (841.89 x 595.28 points)
     const doc = new PDFDocument({
       size: "A4",
       layout: "landscape",
-      margins: { top: 40, bottom: 40, left: 40, right: 40 },
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
     });
 
-    // Pipe PDF directly to response stream
     doc.pipe(res);
-
-    // Draw the certificate content
     await generateCertificatePDF(doc, donation);
-
-    // End Document stream
     doc.end();
   } catch (error) {
     console.error("Certificate Generation Error:", error);

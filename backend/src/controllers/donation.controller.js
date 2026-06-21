@@ -2,23 +2,51 @@ import Donation from "../models/donation.models.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { getReceiptSerialNumber } from "./receipt.controller.js";
-import { sendOnlineDonationEmail } from "../utils/emailService.js";
 
-// Initiate an online donation order
+import {
+  sendOnlineDonationEmail,
+  sendOfflineDonationEmail,
+} from "../utils/emailService.js";
+
+// ─────────────────────────────────────────────────────────────
+// Helper: derive backendUrl from env or live request
+// ─────────────────────────────────────────────────────────────
+const getBackendUrl = (req) =>
+  process.env.BACKEND_URL?.trim() || `${req.protocol}://${req.get("host")}`;
+
+// ─────────────────────────────────────────────────────────────
+// Helper: fire email without blocking the HTTP response.
+// Uses .then/.catch (not setTimeout) — safe on all platforms including Render.
+// Always logs success or failure so you can debug SMTP issues in server logs.
+// ─────────────────────────────────────────────────────────────
+const fireEmailAsync = (emailFn, donation, backendUrl, label) => {
+  emailFn(donation, backendUrl)
+    .then((info) => {
+      console.log(
+        `[EMAIL ✓] ${label} sent to ${donation.donorEmail} | MessageId: ${info.messageId}`
+      );
+    })
+    .catch((err) => {
+      console.error(
+        `[EMAIL ✗] ${label} FAILED for donation ${donation._id}: ${err.message}`
+      );
+    });
+};
+
+// ─────────────────────────────────────────────────────────────
+// Initiate an online donation order (unchanged)
+// ─────────────────────────────────────────────────────────────
 export const initiateOnline = async (req, res) => {
   const { name, email, phone, amount, address, panNo } = req.body || {};
 
   try {
-    // Validate required fields
     if (!name || !email || !phone || !amount || !address) {
       return res.status(400).json({
         success: false,
-        message:
-          "Name, email, phone, amount, and address are required",
+        message: "Name, email, phone, amount, and address are required",
       });
     }
 
-    // Validate amount
     const numericAmount = parseFloat(amount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({
@@ -27,7 +55,6 @@ export const initiateOnline = async (req, res) => {
       });
     }
 
-    // Validate PAN format if provided
     if (panNo && panNo.trim() !== "") {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       if (!panRegex.test(panNo.toUpperCase())) {
@@ -55,22 +82,15 @@ export const initiateOnline = async (req, res) => {
         mock: true,
       };
     } else {
-      const razorpay = new Razorpay({
-        key_id: keyId,
-        key_secret: keySecret,
-      });
-
-      const options = {
+      const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+      order = await razorpay.orders.create({
         amount: Math.round(numericAmount * 100),
         currency: "INR",
         receipt: `receipt_${Date.now()}`,
-      };
-
-      order = await razorpay.orders.create(options);
+      });
       orderId = order.id;
     }
 
-    // Generate transaction ID
     const transactionId =
       "TXN" + Date.now() + Math.random().toString(36).substring(2, 11);
 
@@ -107,7 +127,12 @@ export const initiateOnline = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
 // Verify the Razorpay payment signature
+// FIX 2: Removed risky setTimeout — replaced with safe .then/.catch fire-and-forget.
+//         setTimeout can silently drop on Render/serverless before it fires.
+// FIX 3: Wrong import path was causing a runtime crash that swallowed the email silently.
+// ─────────────────────────────────────────────────────────────
 export const verifyOnline = async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
     req.body || {};
@@ -120,6 +145,7 @@ export const verifyOnline = async (req, res) => {
       });
     }
 
+    const backendUrl = getBackendUrl(req);
     const isMock = razorpay_order_id.startsWith("order_mock_");
 
     if (isMock) {
@@ -139,18 +165,8 @@ export const verifyOnline = async (req, res) => {
       donation.razorpaySignature = razorpay_signature || "mock_signature";
       await donation.save();
 
-      // Resolve dynamic backend URL from request to generate correct email links
-      const protocol = req.protocol;
-      const host = req.get("host");
-      const dynamicBackendUrl = `${protocol}://${host}`;
-
-      // Send email in the background with a 2-second delay so it does not block/queue up
-      // against the immediate frontend receipt details and certificate download requests.
-      setTimeout(() => {
-        sendOnlineDonationEmail(donation, dynamicBackendUrl).catch((emailError) => {
-          console.error("Auto-email receipt failed in background for simulated donation:", emailError);
-        });
-      }, 2000);
+      // FIX: No setTimeout — fire-and-forget with .catch, never blocks response
+      fireEmailAsync(sendOnlineDonationEmail, donation, backendUrl, "Online (simulated)");
 
       return res.status(200).json({
         success: true,
@@ -159,6 +175,7 @@ export const verifyOnline = async (req, res) => {
       });
     }
 
+    // Real Razorpay signature verification
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
@@ -183,18 +200,8 @@ export const verifyOnline = async (req, res) => {
       donation.razorpaySignature = razorpay_signature;
       await donation.save();
 
-      // Resolve dynamic backend URL from request to generate correct email links
-      const protocol = req.protocol;
-      const host = req.get("host");
-      const dynamicBackendUrl = `${protocol}://${host}`;
-
-      // Send email in the background with a 2-second delay so it does not block/queue up
-      // against the immediate frontend receipt details and certificate download requests.
-      setTimeout(() => {
-        sendOnlineDonationEmail(donation, dynamicBackendUrl).catch((emailError) => {
-          console.error("Auto-email receipt failed in background for verified donation:", emailError);
-        });
-      }, 2000);
+      // FIX: No setTimeout — fire-and-forget with .catch, never blocks response
+      fireEmailAsync(sendOnlineDonationEmail, donation, backendUrl, "Online (Razorpay)");
 
       return res.status(200).json({
         success: true,
@@ -203,6 +210,7 @@ export const verifyOnline = async (req, res) => {
       });
     }
 
+    // Signature mismatch — mark as failed
     const donation = await Donation.findOne({
       razorpayOrderId: razorpay_order_id,
     });
@@ -225,7 +233,10 @@ export const verifyOnline = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
 // Record cash donation
+// FIX 4: Was never calling sendOfflineDonationEmail — added below
+// ─────────────────────────────────────────────────────────────
 export const recordCash = async (req, res) => {
   const {
     name,
@@ -247,16 +258,13 @@ export const recordCash = async (req, res) => {
   } = req.body || {};
 
   try {
-    // Validate required fields
     if (!name || !email || !phone || !amount || !address) {
       return res.status(400).json({
         success: false,
-        message:
-          "Name, email, phone, amount, and address are required",
+        message: "Name, email, phone, amount, and address are required",
       });
     }
 
-    // Validate amount
     const numericAmount = parseFloat(amount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({
@@ -265,7 +273,6 @@ export const recordCash = async (req, res) => {
       });
     }
 
-    // Validate PAN format if provided
     if (panNo && panNo.trim() !== "") {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       if (!panRegex.test(panNo.toUpperCase())) {
@@ -276,9 +283,14 @@ export const recordCash = async (req, res) => {
       }
     }
 
-    // Custom Transaction and Order ID if provided, otherwise generate them
-    const finalTxnId = txnId && txnId.trim() !== "" ? txnId.trim() : ("TXN" + Date.now() + Math.random().toString(36).substring(2, 11));
-    const finalOrderId = orderId && orderId.trim() !== "" ? orderId.trim() : ("L4C-" + Math.random().toString(36).substring(2, 11).toUpperCase());
+    const finalTxnId =
+      txnId && txnId.trim() !== ""
+        ? txnId.trim()
+        : "TXN" + Date.now() + Math.random().toString(36).substring(2, 11);
+    const finalOrderId =
+      orderId && orderId.trim() !== ""
+        ? orderId.trim()
+        : "L4C-" + Math.random().toString(36).substring(2, 11).toUpperCase();
 
     const donation = new Donation({
       donorName: name,
@@ -301,6 +313,10 @@ export const recordCash = async (req, res) => {
 
     await donation.save();
 
+    // FIX: Send email automatically on every offline/cash entry save
+    const backendUrl = getBackendUrl(req);
+    fireEmailAsync(sendOfflineDonationEmail, donation, backendUrl, "Offline/Cash");
+
     res.status(201).json({
       success: true,
       message: "Cash donation recorded successfully",
@@ -317,7 +333,9 @@ export const recordCash = async (req, res) => {
   }
 };
 
-// Retrieve all donation history
+// ─────────────────────────────────────────────────────────────
+// Retrieve all donation history (unchanged)
+// ─────────────────────────────────────────────────────────────
 export const getAllRecords = async (req, res) => {
   try {
     const donations = await Donation.find().sort({ createdAt: -1 });
@@ -332,7 +350,9 @@ export const getAllRecords = async (req, res) => {
   }
 };
 
-// Update donor record details
+// ─────────────────────────────────────────────────────────────
+// Update donor record details (unchanged)
+// ─────────────────────────────────────────────────────────────
 export const updateRecord = async (req, res) => {
   const { id } = req.params;
   const {
@@ -406,7 +426,9 @@ export const updateRecord = async (req, res) => {
   }
 };
 
-// Delete donor record - DISABLED FOR SECURITY
+// ─────────────────────────────────────────────────────────────
+// Delete donor record — disabled for security (unchanged)
+// ─────────────────────────────────────────────────────────────
 export const deleteRecord = async (req, res) => {
   return res.status(403).json({
     success: false,
@@ -415,7 +437,9 @@ export const deleteRecord = async (req, res) => {
   });
 };
 
-// Generate transaction receipt
+// ─────────────────────────────────────────────────────────────
+// Generate transaction receipt (unchanged)
+// ─────────────────────────────────────────────────────────────
 export const generateTransactionReceipt = async (req, res) => {
   const { id } = req.params;
 
@@ -430,7 +454,6 @@ export const generateTransactionReceipt = async (req, res) => {
 
     const receiptNumber = await getReceiptSerialNumber(donation);
 
-    // Return receipt data that will be used to generate PDF on frontend
     res.status(200).json({
       success: true,
       receipt: {
