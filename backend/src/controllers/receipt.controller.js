@@ -317,25 +317,33 @@ export const generateReceiptPDFBuffer = async (donation) => {
   });
 };
 
-// Create transporter for sending emails using SMTP credentials
-const createTransporter = () => {
-  const host = process.env.SMTP_HOST || "smtp.gmail.com";
-  const port = parseInt(process.env.SMTP_PORT || "587");
-  const user = process.env.SMTP_USER || process.env.ADMIN_EMAIL;
-  const pass = process.env.SMTP_PASS || process.env.ADMIN_PASSWORD;
+// Globally cached SMTP transporter using connection pooling to reduce handshake latency
+let cachedTransporter = null;
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: {
-      user,
-      pass,
-    },
-    connectionTimeout: 10000, // 10 seconds timeout for establishing TCP connection
-    socketTimeout: 10000,     // 10 seconds idle timeout for socket
-    greetingTimeout: 10000,   // 10 seconds timeout for greeting response
-  });
+const getTransporter = () => {
+  if (!cachedTransporter) {
+    const host = process.env.SMTP_HOST || "smtp.gmail.com";
+    const port = parseInt(process.env.SMTP_PORT || "587");
+    const user = process.env.SMTP_USER || process.env.ADMIN_EMAIL;
+    const pass = process.env.SMTP_PASS || process.env.ADMIN_PASSWORD;
+
+    cachedTransporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      pool: true, // Use connection pool
+      maxConnections: 5,
+      maxMessages: 100,
+      auth: {
+        user,
+        pass,
+      },
+      connectionTimeout: 10000, // 10 seconds timeout for establishing TCP connection
+      socketTimeout: 10000,     // 10 seconds idle timeout for socket
+      greetingTimeout: 10000,   // 10 seconds timeout for greeting response
+    });
+  }
+  return cachedTransporter;
 };
 
 // Generate and email the receipt to the donor using beautiful HTML format
@@ -349,7 +357,7 @@ export const sendHtmlReceiptEmailInternal = async (donation) => {
   const donationNumber = serialNumber;
 
   const paymentMode = (donation.gatewayName || donation.paymentMode || "CASH").toUpperCase();
-  const transporter = createTransporter();
+  const transporter = getTransporter();
   const backendUrl = process.env.BACKEND_URL || "https://dream-girl-foundation.onrender.com";
 
   const htmlContent = `

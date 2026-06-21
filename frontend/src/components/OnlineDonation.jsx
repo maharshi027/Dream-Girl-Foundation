@@ -44,11 +44,14 @@ export default function OnlineDonation() {
       fetchReceiptDetails();
 
       // Automatically download certificate when transaction is successful
-      const autoDownload = async () => {
-        await downloadFile(
-          `/api/certificate/download-certificate/${successData.donationId}`,
-          `Donation_Certificate_${successData.donationId}.pdf`
-        );
+      const autoDownload = () => {
+        // Wait 1 second (1000ms) to allow the success screen to fully mount and browser state to settle
+        setTimeout(async () => {
+          await downloadFile(
+            `/api/certificate/download-certificate/${successData.donationId}`,
+            `Donation_Certificate_${successData.donationId}.pdf`
+          );
+        }, 1000);
       };
 
       autoDownload();

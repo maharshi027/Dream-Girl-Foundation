@@ -138,10 +138,13 @@ export const verifyOnline = async (req, res) => {
       donation.razorpaySignature = razorpay_signature || "mock_signature";
       await donation.save();
 
-      // Send email asynchronously in the background so it doesn't block the API response
-      sendHtmlReceiptEmailInternal(donation).catch((emailError) => {
-        console.error("Auto-email receipt failed in background for simulated donation:", emailError);
-      });
+      // Send email in the background with a 2-second delay so it does not block/queue up
+      // against the immediate frontend receipt details and certificate download requests.
+      setTimeout(() => {
+        sendHtmlReceiptEmailInternal(donation).catch((emailError) => {
+          console.error("Auto-email receipt failed in background for simulated donation:", emailError);
+        });
+      }, 2000);
 
       return res.status(200).json({
         success: true,
@@ -174,10 +177,13 @@ export const verifyOnline = async (req, res) => {
       donation.razorpaySignature = razorpay_signature;
       await donation.save();
 
-      // Send email asynchronously in the background so it doesn't block the API response
-      sendHtmlReceiptEmailInternal(donation).catch((emailError) => {
-        console.error("Auto-email receipt failed in background for verified donation:", emailError);
-      });
+      // Send email in the background with a 2-second delay so it does not block/queue up
+      // against the immediate frontend receipt details and certificate download requests.
+      setTimeout(() => {
+        sendHtmlReceiptEmailInternal(donation).catch((emailError) => {
+          console.error("Auto-email receipt failed in background for verified donation:", emailError);
+        });
+      }, 2000);
 
       return res.status(200).json({
         success: true,
